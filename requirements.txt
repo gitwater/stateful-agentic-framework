@@ -1,0 +1,6 @@
+anthropic==0.45.2
+chromadb==0.5.23
+Flask==3.0.3
+openai==1.63.0
+flask-session==0.8.0
+

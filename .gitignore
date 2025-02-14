@@ -1,0 +1,9 @@
+venv*/
+__pycache__/
+profile.sh
+agent.db
+data/*
+.DS_Store
+flask_session/*
+db/
+messages.json
