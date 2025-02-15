@@ -20,10 +20,13 @@ class MemoryShortTerm:
 
     def get_memory(self):
         utterances = self.retreive_utterances()
-        memory_context = "Recent Conversation History (Short-Term Memory):\n"
+        # Reverse the order of the utterances to show the most recent first
+        utterances = utterances[::-1]
+        memory_context = "START Short-Term Memory Recent Conversation History\n"
         for utterance in utterances:
             memory_context += f"{utterance['speaker']}: {utterance['utterance']}\n"
         memory_context += "\n"
+        memory_context += "END Short-Term Memory Recent Conversation History\n"
 
         return memory_context
 
@@ -314,13 +317,13 @@ Below is the conversation:
                 semantic_memories.append(f"- {doc} (Topics: {topics}, Sentiment: {sentiment})")
 
         # Build the final formatted memory string.
-        formatted_memory = "Relevant Long-Term Memory Context:\n"
+        formatted_memory = "START Long-Term Memory Context\n"
         if episodic_memories:
             formatted_memory += "Long-Term Episodic Memories:\n" + "\n".join(episodic_memories) + "\n\n"
         if semantic_memories:
             formatted_memory += "Long-Term Semantic Memories:\n" + "\n".join(semantic_memories)
 
-        formatted_memory += "\n"
+        formatted_memory += "END Long-Term Memory Context\n"
 
         return formatted_memory
 

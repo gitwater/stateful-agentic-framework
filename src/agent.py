@@ -16,6 +16,7 @@ class AgentCore:
 
 
         self.model = self.llm_config['model']
+        print(f"LLM Model: {self.model}")
         if self.model in self.openai_model_list:
             self.llm_client = openai.OpenAI()
             self.llm_vendor = 'openai'

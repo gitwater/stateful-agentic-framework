@@ -38,12 +38,12 @@ class SQLDatabaseSTM:
         if num_entries <= 0:
             cursor.execute('''
                 SELECT * FROM utterances
-                ORDER BY created_at ASC
+                ORDER BY created_at DESC
             ''')
         else:
             cursor.execute('''
                 SELECT * FROM utterances
-                ORDER BY created_at ASC
+                ORDER BY created_at DESC
                 LIMIT ?
             ''', (num_entries,))
         entries = cursor.fetchall()

@@ -52,7 +52,6 @@ class PersonaState:
 
     # This method will update the state's data object with the data from the LLM response
     def update_state_from_llm_response(self, llm_response):
-
         if self.data == None:
             new_data = {'goals': {}}
             for goal_name, goal_config in llm_response['data']['goals'].items():

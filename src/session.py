@@ -98,6 +98,11 @@ class SessionState:
         agent_msg = {'role': 'debug-agent', 'response': f"{agent_role}: {message}"}
         self.agent_dialog_msgs.append(agent_msg)
 
+    def send_debug_message(self, message):
+        agent_msg = {'role': 'debug-agent', 'response': f"{message}"}
+        self.agent_dialog_msgs.append(agent_msg)
+
+
     def pop_agent_dialog_messages(self):
         messages = self.agent_dialog_msgs
         self.agent_dialog_msgs = []

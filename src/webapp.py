@@ -34,8 +34,8 @@ def index():
     session['client_id'] = last_client_id
     session_states[last_client_id] = SessionState(last_client_id, persona_config_path)
     #return render_template('index.html')
-    return render_template('index_debug.html', agent_name=session_states[last_client_id].agent.persona_config.config['persona']['name'])
-    #return render_template('index_debug_2.html')
+    #return render_template('index_debug.html', agent_name=session_states[last_client_id].agent.persona_config.config['persona']['name'])
+    return render_template('index_debug_2.html', agent_name=session_states[last_client_id].agent.persona_config.config['persona']['name'])
 
 
 @app.route('/active-message')

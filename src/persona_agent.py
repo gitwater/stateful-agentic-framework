@@ -79,6 +79,21 @@ class PersonaAgent:
         }
         return message
 
+    # Generates a string where each new line has a prefix of indent
+    def pstring(self, key, value, indent=""):
+        key = key+": "
+        prompt_text = f"{indent}{key}"
+        count = 1
+        for line in value.split("\n"):
+            if count > 1:
+                prompt_text += f"{indent}{' ' * len(key)}"
+            prompt_text += f"{line}\n"
+            count += 1
+
+        if prompt_text[-1] != '\n':
+            prompt_text += "\n"
+        return prompt_text
+
     # Get the framework messages for the persona
     # Persona
     #
@@ -86,36 +101,40 @@ class PersonaAgent:
         persona_config = self.persona_config.config['persona']
         persona_state_obj = self.state_manager.get_state_obj()
         # Persona
-        persona_info = f"""
-You are {persona_config['name']}, a {persona_config['description']}.
+        persona_info = f"""You are {persona_config['name']}.
+You are described as {persona_config['description']}.
 Your purpose is {persona_config['purpose']}.
 """
 
         # Framework States
-        framework_states = ""
+        framework_states = "Available States and their details:\n"
          # Current State
-        current_state = f"Current State: {persona_state_obj.name}"
+        current_state = persona_state_obj.name
 
         states_config = self.persona_config.config['states']
         state_list = []
+        indent = "  "
         for (state_name, state_config) in states_config.items():
+            if 'visibility' in state_config.keys() and state_config['visibility'] == 'state_only' and current_state != state_name:
+                continue
             # State
             state_list.append(state_name)
-            framework_states += f"- State: {state_name}:\n"
-            framework_states += f"    Purpose: {state_config['purpose']}\n"
-            #framework_states += f"    Action Description: {state_config['action_description']}\n"
+            framework_states += self.pstring("State", state_name, indent)
+            indent += "  "
+            framework_states += self.pstring("Purpose", state_config['purpose'], indent)
             # If current state is the state being processed, then use the current state data
             state_data = self.sql_db.db_states.get_persona_state_data(state_name)
+            framework_states += self.pstring("Goals", "", indent)
             for (goal_name, goal_config) in state_config['goals'].items():
-                framework_states += f"    Goals:\n"
-                framework_states += f"        * {goal_name}: {goal_config['goal']}\n"
+                indent += "  "
+                framework_states += self.pstring("Goal", goal_name, indent)
+                indent += "  "
+                framework_states += self.pstring("Description", goal_config['goal'], indent)
                 if current_state == state_name:
-                    framework_states += f"          Goal Successful Data Criteria: When all data fields have values that are adequate to the state and goal.\n"
-                    framework_states += f"          Goal Successful When: {goal_config['success']}\n"
-                    framework_states += f"          Goal Success Action: When this goal is complete, transition to the next best state according to the current context.\n"
+                    framework_states += self.pstring("Goal Sucess Criteria", "When all data fields have values that satisfy the goals intent.", indent)
                 data_config = goal_config['data']
                 if state_data == None:
-                    framework_states += f"          Goal Data: {json.dumps(data_config)}\n"
+                    framework_states += self.pstring("Goal Data", json.dumps(data_config), indent)
                 else:
                     new_data = {}
                     # Merge state_data and data_config into new_data.
@@ -127,18 +146,30 @@ Your purpose is {persona_config['purpose']}.
                             new_data[key] = value
                         else:
                             new_data[key] = state_data['goals'][goal_name]['data'][key]
-                    framework_states += f"          Goal Data: {json.dumps(new_data)}\n"
-            framework_states += "\n"
-        framework_states += "States are considered complete when all of their goals success criteria are met."
+                    framework_states += self.pstring("Goal Data", json.dumps(new_data), indent)
+                indent = indent[:-4]
+            # state_data_output_format
+            if 'output_format' in state_config.keys():
+                framework_states += self.pstring("State Data Output Format", "", indent)
+                framework_states += self.pstring("", state_config['output_format'], indent)
+
+            indent += "  "
+            framework_states += self.pstring(f"State Transition Criteria", "Only transition to another state when all of the {state_name}'s goals and their success criteria have been met.", indent)
+            indent = indent[:-4]
+        framework_states += "States are considered complete only when all of their goals success criteria are met."
+        framework_states += "However, if asked, please display state outputs as configured by the outputs_format."
 
         # Framework Goals
         framework_goals = ""
+        count = 1
         for (name, goal) in self.persona_config.config['goals']['framework'].items():
-            framework_goals += f"- {name}: {goal}\n"
+            if count == 1: framework_goals = "Global Framework Goals:\n"
+            framework_goals += self.pstring(name, goal, "  ")
+            count += 1
 
         # Memory Context
         memory_context = self.get_conversation_memory()
-
+        #memory_context = ""
 
         # Output Format Text
         output_format_text = ""
@@ -148,47 +179,44 @@ Your purpose is {persona_config['purpose']}.
 The response should be provided in the following JSON format:
 {{
     "current_state": "{current_state}",
-    "next_state": f"<Determine if the current state should change and place it here, otherwise stay in the same state: Valid states = {', '.join(state_list)}>",
-    'agent_response": "<Generate the response to the user input in markdown here and esure that it contains a follow up question to keep the conversation going.>",
+    "next_state": f"<Determine if the current state should change and place it here, otherwise stay in the same state: Valid states = {', '.join(state_list)}: Format with Markdown using the Markdown and Response Instructions.>",
+    'agent_response": "<Place your response here and esure that it contains a follow up question to keep the conversation going. Format with Markdown using the Markdown and Response Instructions.>",
     "data": {persona_state_obj.data_schema_json}
 }}
 Ensure that the JSON response is loadable by json.loads(). Ensure that newlines are represented as '\\n' in the JSON response.
 """
-
         # Markdown Format Requirements
-        markdown_format_requirements = """
-Markdown Format Requirements:
-- Generate Markdown for any JSON values that are intended to be displayed to the user.
-- DO NOT use headers.
-- Apply **bold** for titles and keywords; use *italics* for emphasis. Do not make entire sentences bold or italic.
-- Present lists with bullet points or numbers depending on sequence importance.
-- Use tables to structure comparative or detailed data.
-- Ensure that newlines are represented as two for additional space'\\n\\n'
-- Place questions on its own line
-- Apply the formatting style that best enhances the clarity and engagement of the content.
+        response_and_markdown_format_requirements = """
+Markdown Formatting Instructions:
+  - Only format using Markdown when JSON values indicate it.
+  - Do not use headers larger than 4 #'s
+  - Apply **bold** for titles and keywords; use *italics* for emphasis. Do not make entire sentences bold or italic.
+  - Present lists with bullet points or numbers depending on sequence importance.
+  - Use tables to structure comparative or detailed data.
+  - Apply the formatting style that best enhances the clarity and engagement of the content.
 
-DO NOT generate JSON values using HTML or XML.
+Other Response Instructions:
+  - Never format JSON values using HTML or XML.
+  - Always separate questions with a newline if they are part of a paragraph.
 """
         # Framework Message
-        framework_message = f"""
-{persona_info}
-
-Available States and their details:
+        framework_message = f"""{persona_info}
 {framework_states}
-Global Framework Goals:
 {framework_goals}
 {memory_context}
-
-{current_state}
-
-{markdown_format_requirements}
-
+Current State: {current_state}
+{response_and_markdown_format_requirements}
 {output_format_text}
 """
         messages.append({
             "role": "system",
             "content": framework_message
         })
+
+        self.session.send_debug_message("---------------------------------------------------------------------")
+        self.session.send_debug_message("Framework Messages\n\n")
+        for message in messages:
+            self.session.send_debug_message(message['content'])
 
         return messages
 
@@ -199,38 +227,52 @@ Global Framework Goals:
 
     def interaction_get_starting_conversation(self):
         messages = []
-        messages = self.get_framework_messages(messages)
+        prompt_messages = []
+        framework_messages = self.get_framework_messages(messages)
+        messages.extend(framework_messages)
 
-        messages.append({
+        prompt_messages.append({
             "role": "system",
             "content": f"The user has just begun a conversation with you, generate a response approrate for the starting point of the conversation based on the current state, its data, and goals (both framework and current state)."
         })
 
         json_format_dict = {
-            'agent_greeting_response': "<Welcome the user, describe the current state they are in, and then assess and generate summary of their progress for the current state. This value must be formatted in Markdown.>",
-            'agent_question_response': "<Ask the user only one question relevant to the current state to keep the conversation going. This value must be formatted in Markdown. Ensure the question is on a newline if sentences come before it.>",
+            'agent_greeting_response': "<Place a welcome message here that describes the current state they are in, a summary of their progress. Do not ask questions here. Format with Markdown using the Markdown and Response Instructions.>",
+            'agent_question_response': "<Place a question here relevant to the current state to keep the conversation going. Format with Markdown using the Markdown and Response Instructions.>",
         }
 
         system_content = f"""
 The response should be provided in the following JSON format:
-{json.dumps(json_format_dict)}
+{json.dumps(json_format_dict, indent=4)}
 
 Please ensure that all variables in the JSON response format have valid values.
 Ensure that the JSON response is loadable by json.loads(). Ensure that newlines are represented as '\\n' in the JSON response.
 """
 
-        messages.append({
+        prompt_messages.append({
             "role": "system",
             "content": system_content
         })
 
+        for message in prompt_messages:
+            self.session.send_debug_message(message['content'])
+        self.session.send_debug_message("---------------------------------------------------------------------")
+
+        messages = framework_messages
+        messages.extend(prompt_messages)
+
+
         response = self.get_response(messages, json_response=True)
 
+        self.session.send_debug_message(f"Get Response:\n{json.dumps(response, indent=4)}")
+
         agent_response = f"""
-{response['agent_greeting_response']}
+{response['agent_greeting_response']}\n
 {response['agent_question_response']}
 """
         self.session.send_user_message(agent_response)
+        #self.session.send_user_message(response['agent_greeting_response'])
+        #self.session.send_user_message(response['agent_question_response'])
         # self.session.send_user_message(response['agent_greeting'])
         # self.session.send_user_message(response['current_context'])
         # self.session.send_user_message(response['next_steps'])
