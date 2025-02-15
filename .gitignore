@@ -7,3 +7,4 @@ data/*
 flask_session/*
 db/
 messages.json
+config/*

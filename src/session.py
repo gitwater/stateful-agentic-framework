@@ -39,6 +39,33 @@ class AgenticFrameworkConfig:
 
         return data
 
+    @property
+    def persona(self):
+        return self.config['persona']
+
+    def framework_llm_config(self, agent_type=None, socratic_persona=None):
+        framework = self.config['framework_settings']
+        if agent_type is None:
+            if framework['reasoning_agent'] == 'single':
+                return framework['reasoning_agents_config']['single']
+            if framework['reasoning_agent'] == 'socratic':
+                if socratic_persona is None:
+                    breakpoint()
+                return framework['reasoning_agents_config']['socratic'][socratic_persona]
+        elif agent_type == 'single':
+            return framework['reasoning_agents_config']['single']
+        elif agent_type == 'socratic':
+            if socratic_persona is None:
+                breakpoint()
+            return framework['reasoning_agents_config']['socratic'][socratic_persona]
+        return None
+
+    def framework_llm_openai_config(self, agent_type=None, socratic_persona=None):
+        agent_config = self.framework_agent_config(agent_type, socratic_persona)
+        return agent_config['openai_config']
+
+
+
 
 class SessionState:
     def __init__(self, client_id, persona_config_path):

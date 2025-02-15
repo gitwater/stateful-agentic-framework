@@ -4,8 +4,9 @@ import json
 
 
 class SingleAgent(AgentCore):
-    def __init__(self, session, persona_agent, model=None):
-        super().__init__(persona_agent, model)
+    def __init__(self, session, persona_agent):
+        llm_config = persona_agent.persona_config.framework_llm_config("single")
+        super().__init__(persona_agent, llm_config)
         self.session = session
         self.system_role = f"""
 You are {self.persona_agent.persona_config.config['persona']['name']}, a {self.persona_agent.persona_config.config['persona']['description']}.

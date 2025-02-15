@@ -8,18 +8,15 @@ from pprint import pprint
 
 class PersonaAgent:
 
-    default_agent_type = "socratic"
-    default_agent_type = "single"
-
     def __init__(self, session, persona_config, model=None):
         self.session = session
         self.persona_config = persona_config
         self.sql_db = SQLDatabase(persona_config.config)
-        self.socratic_agent = SocraticAgent(session, self, model)
-        self.single_agent = SingleAgent(session, self, model)
+        self.socratic_agent = SocraticAgent(session, self)
+        self.single_agent = SingleAgent(session, self)
         self.state_manager = PersonaStateManager(persona_config.config, self.sql_db)
 
-        if PersonaAgent.default_agent_type == "socratic":
+        if self.persona_config.config['framework_settings']['reasoning_agent'] == "socratic":
             self.agent = self.socratic_agent
         else:
             self.agent = self.single_agent
@@ -96,20 +93,26 @@ Your purpose is {persona_config['purpose']}.
 
         # Framework States
         framework_states = ""
+         # Current State
+        current_state = f"Current State: {persona_state_obj.name}"
 
         states_config = self.persona_config.config['states']
+        state_list = []
         for (state_name, state_config) in states_config.items():
             # State
-            framework_states += f"- State '{state_name}':\n"
+            state_list.append(state_name)
+            framework_states += f"- State: {state_name}:\n"
             framework_states += f"    Purpose: {state_config['purpose']}\n"
-            framework_states += f"    Action Description: {state_config['action_description']}\n"
+            #framework_states += f"    Action Description: {state_config['action_description']}\n"
+            # If current state is the state being processed, then use the current state data
             state_data = self.sql_db.db_states.get_persona_state_data(state_name)
             for (goal_name, goal_config) in state_config['goals'].items():
                 framework_states += f"    Goals:\n"
                 framework_states += f"        * {goal_name}: {goal_config['goal']}\n"
-                framework_states += f"          Goal Successful Data Criteria: When all data fields have values that are adequate to the state and goal.\n"
-                framework_states += f"          Goal Successful When: {goal_config['success']}\n"
-                framework_states += f"          Goal Success Action: When this goal is complete, transition to the next best state according to the current context.\n"
+                if current_state == state_name:
+                    framework_states += f"          Goal Successful Data Criteria: When all data fields have values that are adequate to the state and goal.\n"
+                    framework_states += f"          Goal Successful When: {goal_config['success']}\n"
+                    framework_states += f"          Goal Success Action: When this goal is complete, transition to the next best state according to the current context.\n"
                 data_config = goal_config['data']
                 if state_data == None:
                     framework_states += f"          Goal Data: {json.dumps(data_config)}\n"
@@ -136,8 +139,6 @@ Your purpose is {persona_config['purpose']}.
         # Memory Context
         memory_context = self.get_conversation_memory()
 
-        # Current State
-        current_state = f"Current State: {persona_state_obj.name}"
 
         # Output Format Text
         output_format_text = ""
@@ -146,8 +147,9 @@ Your purpose is {persona_config['purpose']}.
             output_format_text = f"""
 The response should be provided in the following JSON format:
 {{
-    "next_state": "<place the next state you would like to transition to here, otherwise keep it as the current state>",
-    'agent_response": "<Place your response to the users input here and esure that it contains a follow up question on a new line to keep the conversation going. This value must be formatted in Markdown.>",
+    "current_state": "{current_state}",
+    "next_state": f"<Determine if the current state should change and place it here, otherwise stay in the same state: Valid states = {', '.join(state_list)}>",
+    'agent_response": "<Generate the response to the user input in markdown here and esure that it contains a follow up question to keep the conversation going.>",
     "data": {persona_state_obj.data_schema_json}
 }}
 Ensure that the JSON response is loadable by json.loads(). Ensure that newlines are represented as '\\n' in the JSON response.
@@ -187,36 +189,6 @@ Global Framework Goals:
             "role": "system",
             "content": framework_message
         })
-
-        # # User State
-        # data_object_message = ""
-        # for (data_object_key, data_object) in self.persona_config['data_objects'].items():
-        #     data_object_message += f"  START Data Object: {data_object_key}\n"
-        #     # Iterate over the data objects and print each key and value as a string like: Key: Value
-        #     data_object_message += self.data_obj_json_to_string(data_object)
-        #     data_object_message += f"  END Data Object: {data_object_key}\n"
-
-
-#         data_objects = f"""
-# START Persona Framework Data Objects\n
-# {data_object_message}
-# END Persona Framework Data Objects\n
-# """
-#         messages.append({
-#             "role": "system",
-#             "content": data_objects
-#         })
-
-
-        # --------------------------------------------------
-        # Memory Context
-        # memory_context = self.get_conversation_memory()
-        # if len(memory_context) > 0:
-        #     memory_message = {
-        #         "role": "assistant",
-        #         "content": memory_context
-        #     }
-        #     messages.append(memory_message)
 
         return messages
 

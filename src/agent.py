@@ -6,33 +6,31 @@ import anthropic
 debug_token_printing = True
 
 class AgentCore:
-    LLM_API="anthropic"
-    LLM_API="openai"
+    openai_model_list = ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo']
+    anthropic_model_list = ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest']
 
-    def __init__(self, persona_agent, model=None):
+    def __init__(self, persona_agent, llm_config):
         self.persona_agent = persona_agent
         self.response_history = []
-        self.model = model
+        self.llm_config = llm_config
 
-        print(f"LLM: {AgentCore.LLM_API}: {self.model}")
 
-        if AgentCore.LLM_API == "anthropic":
-            self.llm_client = anthropic.Anthropic()
-            self.socrate_agent_role = "assistant"
-            self.model = 'claude-3-5-sonnet-latest'
-            #self.model = 'claude-3-5-haiku-latest'
-        elif AgentCore.LLM_API == "openai":
+        self.model = self.llm_config['model']
+        if self.model in self.openai_model_list:
             self.llm_client = openai.OpenAI()
-            self.socrate_agent_role = "system"
-            self.model = 'gpt-4o-mini'
-            #self.model = 'gpt-3.5-turbo'
-            self.model = 'gpt-4o'
+            self.llm_vendor = 'openai'
+            self.openai_config = self.llm_config['openai_config']
+        elif self.model in self.anthropic_model_list:
+            self.llm_client = anthropic.Anthropic()
+            self.llm_vendor = 'anthropic'
+            self.anthropic_config = self.llm_config['anthropic_config']
         else:
-            print("LLM API not set")
+            print("LLM model NOT set")
             breakpoint()
 
 
     def get_gpt_response(self, messages, json_response=False):
+        # Get OpenAI LLM configuration from Persona Framework Config
         if json_response:
             response_format = "json_object"
         else:
@@ -41,9 +39,9 @@ class AgentCore:
             res = self.llm_client.chat.completions.create(
                     model=self.model,
                     response_format={"type": response_format},
-                    temperature=0.5,
-                    top_p=1.0,
-                    presence_penalty=0.0,
+                    temperature=self.openai_config['temperature'],
+                    top_p=self.openai_config['top_p'],
+                    presence_penalty=self.openai_config['presence_penalty'],
                     messages = messages
                 )
             msg = res.choices[0].message.content
@@ -81,12 +79,12 @@ class AgentCore:
         #return message.content
 
     def get_embeddings(self, input_text):
-        if AgentCore.LLM_API == "anthropic":
+        if self.llm_vendor == "anthropic":
             embeddings = self.llm_client.embeddings.create(
                 model=self.model,
                 input_text=input_text
             )
-        elif AgentCore.LLM_API == "openai":
+        elif self.llm_vendor == "openai":
             embeddings = self.llm_client.embeddings.create(
                 model='text-embedding-ada-002',
                 #model='text-embedding-3-small',
@@ -106,9 +104,9 @@ class AgentCore:
 
         count = 0
         while True:
-            if AgentCore.LLM_API == "anthropic":
+            if self.llm_vendor == "anthropic":
                 msg = self.get_anthropic_response(messages)
-            elif AgentCore.LLM_API == "openai":
+            elif self.llm_vendor == "openai":
                 msg = self.get_gpt_response(messages, json_response)
             else:
                 print("LLM API not set")
@@ -126,7 +124,7 @@ class AgentCore:
         # Print the number of tokens in the messages and the response
         # A token is 4 bytes
         if debug_token_printing:
-            print(f"\n>>>>>>>>> {self.socrate_agent_role}: Get Response: Input Tokens: {len(''.join([m['content'] for m in messages]))/4}: Output Tokens: {len(msg)/4}\n")
+            print(f"\n>>>>>>>>> Get Response: Input Tokens: {len(''.join([m['content'] for m in messages]))/4}: Output Tokens: {len(msg)/4}\n")
 
         if json_response:
             msg = json.loads(msg)

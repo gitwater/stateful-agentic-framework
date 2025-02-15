@@ -18,7 +18,15 @@ class SocraticAgentCore(AgentCore):
 
     def __init__(self, socratic_persona, persona_agent, model=None):
 
-        super().__init__(persona_agent, model)
+        llm_config = persona_agent.persona_config.framework_llm_config('socratic', socratic_persona=socratic_persona.lower())
+        super().__init__(persona_agent, llm_config)
+
+        if llm_config['model'] in AgentCore.openai_model_list:
+            # OpenAI Prompt Role config
+            self.socrate_agent_role = "system"
+        else:
+            # Anthropic Prompt Role config
+            self.socrate_agent_role = "assistant"
 
         self.socratic_persona = socratic_persona
         self.other_socratic_persona = None
