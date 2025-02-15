@@ -1,9 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session
 from flask_session import Session
-import threading
-import uuid
-import time
-import subprocess
+import sys, os
 from subprocess import TimeoutExpired
 from session import SessionState
 
@@ -27,22 +24,24 @@ chat_count = 0
 
 request_locks = {}
 
+persona_config_path = None
 
 @app.route('/')
 def index():
     global last_client_id
+    global persona_config_path
     last_client_id += 1
     session['client_id'] = last_client_id
-    session_states[last_client_id] = SessionState(last_client_id)
+    session_states[last_client_id] = SessionState(last_client_id, persona_config_path)
     #return render_template('index.html')
-    return render_template('index_debug.html', agent_name=session_states[last_client_id].agent.persona_config['persona']['name'])
+    return render_template('index_debug.html', agent_name=session_states[last_client_id].agent.persona_config.config['persona']['name'])
     #return render_template('index_debug_2.html')
 
 
 @app.route('/active-message')
 def active_message():
 
-    global last_client_id, session_states, request_locks
+    global last_client_id, session_states, request_locks, persona_config_path
 
     client_id = int(session['client_id'])
     #if client_id not in request_locks:
@@ -62,7 +61,7 @@ def active_message():
             print("current session id", client_id)
             print("last_client_id", last_client_id)
             last_client_id = client_id
-            session_states[last_client_id] = SessionState(last_client_id)
+            session_states[last_client_id] = SessionState(last_client_id, persona_config_path)
 
         session_state = session_states[client_id]
         success = session_state.agent.interactions()
@@ -121,4 +120,16 @@ def chat():
 
 
 if __name__ == '__main__':
+    # Print a usage message if the user does not provide any arguments
+    if len(sys.argv) < 2:
+        print("Usage: python src/webapp.py <config_path>")
+        sys.exit(1)
+    # Get the first argument which is a config file path
+    persona_config_path = sys.argv[1]
+    # Verify the config path is vaid and exists
+    if not os.path.exists(persona_config_path):
+        print(f"Invalid config path: {persona_config_path}")
+        sys.exit(1)
+
+
     app.run(port=8000, debug=False, threaded=False)

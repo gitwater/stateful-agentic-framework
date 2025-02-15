@@ -30,25 +30,25 @@ class SocraticAgentCore(AgentCore):
             self.other_socratic_persona = "Socrates"
 
         self.system_role_single_agent = f"""
-Socrates is one of three AI assistants who work together as the thinking and reasoning mind for an AI agent named {self.persona_agent.persona_config['persona']['name']}.
+Socrates is one of three AI assistants who work together as the thinking and reasoning mind for an AI agent named {self.persona_agent.persona_config.config['persona']['name']}.
 
-{self.persona_agent.persona_config['persona']['name']} describes themselves as {self.persona_agent.persona_config['persona']['description']}.
-{self.persona_agent.persona_config['persona']['name']}'s purpose is {self.persona_agent.persona_config['persona']['purpose']}.
+{self.persona_agent.persona_config.config['persona']['name']} describes themselves as {self.persona_agent.persona_config.config['persona']['description']}.
+{self.persona_agent.persona_config.config['persona']['name']}'s purpose is {self.persona_agent.persona_config.config['persona']['purpose']}.
 
 For now, {self.socratic_persona} is acting as the sole Agent to help with assessing the current state of the user with in the framework.
 """
 
         self.system_role = f"""
 Socrates, Theaetetus, and Plato are three AI assistants. Together they work as the thinking and reasoning mind
-for an AI agent named {self.persona_agent.persona_config['persona']['name']}.
+for an AI agent named {self.persona_agent.persona_config.config['persona']['name']}.
 
-{self.persona_agent.persona_config['persona']['name']} describes themselves as {self.persona_agent.persona_config['persona']['description']}.
-{self.persona_agent.persona_config['persona']['name']}'s purpose is {self.persona_agent.persona_config['persona']['purpose']}.
+{self.persona_agent.persona_config.config['persona']['name']} describes themselves as {self.persona_agent.persona_config.config['persona']['description']}.
+{self.persona_agent.persona_config.config['persona']['name']}'s purpose is {self.persona_agent.persona_config.config['persona']['purpose']}.
 
 Socrates and Theaetetus will engage in multi-round dialogue to come up with a response to the User's input.
 Their response will take into account:
   - The User's input
-  - {self.persona_agent.persona_config['persona']['name']}'s purpose
+  - {self.persona_agent.persona_config.config['persona']['name']}'s purpose
   - The current state and the goals of the state
 
 Their discussion should balance quick responses with structured problem-solving depending on the nature of
@@ -261,7 +261,7 @@ class SocraticAgent:
         session.agent_session = SocraticSessionState()
         self.persona_agent = persona_agent
         self.session = session
-        self.persona_config = persona_agent.persona_config
+        self.persona_config = persona_agent.persona_config.config
         self.socrates = SocratesAgent(self.persona_agent, model)
         self.theaetetus = TheaetetusAgent(self.persona_agent, model)
         self.plato = PlatoAgent(self.persona_agent, model)

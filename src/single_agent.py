@@ -8,8 +8,8 @@ class SingleAgent(AgentCore):
         super().__init__(persona_agent, model)
         self.session = session
         self.system_role = f"""
-You are {self.persona_agent.persona_config['persona']['name']}, a {self.persona_agent.persona_config['persona']['description']}.
-Your purpose is {self.persona_agent.persona_config['persona']['purpose']}.
+You are {self.persona_agent.persona_config.config['persona']['name']}, a {self.persona_agent.persona_config.config['persona']['description']}.
+Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}.
 """
 
     def get_response(self, messages, json_response=False):

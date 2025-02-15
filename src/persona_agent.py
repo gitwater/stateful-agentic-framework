@@ -14,17 +14,18 @@ class PersonaAgent:
     def __init__(self, session, persona_config, model=None):
         self.session = session
         self.persona_config = persona_config
-        self.sql_db = SQLDatabase(persona_config)
+        self.sql_db = SQLDatabase(persona_config.config)
         self.socratic_agent = SocraticAgent(session, self, model)
         self.single_agent = SingleAgent(session, self, model)
-        self.state_manager = PersonaStateManager(persona_config, self.sql_db)
+        self.state_manager = PersonaStateManager(persona_config.config, self.sql_db)
+
         if PersonaAgent.default_agent_type == "socratic":
             self.agent = self.socratic_agent
         else:
             self.agent = self.single_agent
 
         self.current_user_input = None
-        self.memory_system = AgentMemory(persona_config, self)
+        self.memory_system = AgentMemory(persona_config.config, self)
 
     def get_conversation_memory(self):
         user_input = ""
@@ -85,7 +86,7 @@ class PersonaAgent:
     # Persona
     #
     def get_framework_messages(self, messages, state_data_json_response=False):
-        persona_config = self.persona_config['persona']
+        persona_config = self.persona_config.config['persona']
         persona_state_obj = self.state_manager.get_state_obj()
         # Persona
         persona_info = f"""
@@ -96,7 +97,7 @@ Your purpose is {persona_config['purpose']}.
         # Framework States
         framework_states = ""
 
-        states_config = self.persona_config['states']
+        states_config = self.persona_config.config['states']
         for (state_name, state_config) in states_config.items():
             # State
             framework_states += f"- State '{state_name}':\n"
@@ -129,7 +130,7 @@ Your purpose is {persona_config['purpose']}.
 
         # Framework Goals
         framework_goals = ""
-        for (name, goal) in self.persona_config['goals']['framework'].items():
+        for (name, goal) in self.persona_config.config['goals']['framework'].items():
             framework_goals += f"- {name}: {goal}\n"
 
         # Memory Context
