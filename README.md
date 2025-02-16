@@ -40,5 +40,8 @@
 ## Databases
 
 Data is stored in locally created Vector and SQL databases.
-`db/sql/<agent name>.db`
-`db/vector/<agent name>.db/`
+
+```
+db/sql/<agent name>.db
+db/vector/<agent name>.db/
+```
