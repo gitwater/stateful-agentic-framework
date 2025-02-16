@@ -36,3 +36,9 @@
     3. Open your browser and go to [http://127.0.0.1:8000/](http://127.0.0.1:8000/) to connect to the agent.
 
     **Note:** If you quit the server, make sure to close your browser tab before starting the server again.
+
+## Databases
+
+Data is stored in locally created Vector and SQL databases.
+`db/sql/<agent name>.db`
+`db/vector/<agent name>.db/`
