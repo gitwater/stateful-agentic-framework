@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Stateful Agentic Framework</title>
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+        <!-- jQuery -->
+        <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+        <!-- Bootstrap Bundle (includes Popper) -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Markdown-it -->
+        <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
+        <!-- Highlight.js -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/monokai-sublime.min.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap');
+
+            body {
+            font-family: Arial, sans-serif;
+            font-size: 1rem;
+            background-color: #212529;
+            color: #f8f9fa;
+            }
+            /* Flex container for both chat windows */
+            #chat-container {
+            width: 80%;
+            max-width: 1200px;
+            margin: 2rem auto;
+            display: flex;
+            gap: 1rem;
+            }
+            /* Flex items: allow shrinking by setting min-width to 0 */
+            .chat-window {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            }
+            .chat-window-hud {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            padding-top: 30px;
+            }
+            /* Chat history areas share these properties */
+            .chat-history {
+            height: 600px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #343a40;
+            border-radius: 0.5rem;
+            }
+            /* Main Chat Dialog: wrap text and hide horizontal scrollbar */
+            #chat-history {
+            overflow-x: hidden;
+            white-space: normal;
+            word-wrap: break-word;
+            }
+            /* Debug Dialog: prevent wrapping and show horizontal scrollbar */
+            #debug-history {
+            overflow-x: auto;
+            white-space: pre;
+            font-size: 0.8rem;
+            font-family: monospace;
+            }
+            #user-input {
+            width: 100%;
+            box-sizing: border-box;
+            }
+            p {
+            margin: 6px 0;
+            }
+            h1 {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 2.5rem;
+            color: #ffffff;
+            }
+            .message-sender {
+            font-weight: bold;
+            }
+            .message-content {
+            display: inline;
+            }
+            .user-message {
+            margin-bottom: 8px;
+            color: #2ecc71;
+            }
+            .socrates-message {
+            margin-bottom: 8px;
+            color: #e74c3c;
+            }
+            .hud-message {
+            margin-bottom: 8px;
+            color: #f8f9fa;
+            }
+            .debug-agent-message {
+            margin-bottom: 8px;
+            color: #c0c0c0;
+            }
+            .system-message {
+            text-align: center;
+            margin-bottom: 6px;
+            color: #94928e;
+            }
+            /* For debug text formatting */
+            .raw-text {
+            white-space: pre;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="chat-container">
+            <!-- Main Chat Window for agent/user dialog -->
+            <div class="chat-window">
+            <h1 class="text-center mb-4">{{ agent_name }} AI</h1>
+            <div id="chat-history" class="chat-history rounded"></div>
+            </div>
+            <!-- Tab Container for HUD (Markdown) and Debug (Raw) dialogs -->
+            <div class="chat-window-hud">
+            <!-- Tab Navigation -->
+            <ul class="nav nav-tabs" id="docDebugTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="hud-tab" data-bs-toggle="tab" data-bs-target="#hud-display" type="button" role="tab" aria-controls="hud-display" aria-selected="true">
+                    HUD
+                </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                <button class="nav-link" id="debug-tab" data-bs-toggle="tab" data-bs-target="#debug-pane" type="button" role="tab" aria-controls="debug-pane" aria-selected="false">
+                    Debug
+                </button>
+                </li>
+            </ul>
+            <!-- Tab Content -->
+            <!-- The outer container retains the id "hud-display" for Bootstrap, but the inner container is renamed -->
+            <div class="tab-content">
+                <!-- HUD Pane: Markdown rendering -->
+                <div class="tab-pane fade show active" id="hud-display" role="tabpanel" aria-labelledby="hud-tab">
+                <div id="hud-content" class="chat-history rounded"></div>
+                </div>
+                <!-- Debug Pane: Raw monospace text -->
+                <div class="tab-pane fade" id="debug-pane" role="tabpanel" aria-labelledby="debug-tab">
+                <div id="debug-history" class="chat-history rounded"></div>
+                </div>
+            </div>
+            </div>
+        </div>
+        <!-- User Input -->
+        <div class="input-group mt-3" style="width: 80%; margin: 0 auto;">
+            <textarea id="user-input" class="form-control" placeholder="Type your message..." rows="3"></textarea>
+            <div class="send-btn-container">
+            <button id="send-btn" class="btn btn-success btn-sm">Send</button>
+            </div>
+        </div>
+        <script>
+            let requestInProgress = false;
+            const md = window.markdownit({
+                highlight: function (str, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(str, { language: lang }).value;
+                        } catch (__) {}
+                    }
+                    return md.utils.escapeHtml(str);
+                }
+            });
+
+            // Use document.ready to ensure DOM is loaded.
+            console.log("Initializing Before doc ready");
+            $(document).ready(function () {
+                console.log("In document ready function");
+                setInterval(obtainActiveMessage, 2000);
+                $('#send-btn').on('click', function () {
+                    let user_input = $('#user-input').val();
+                    if (user_input.trim() !== '') {
+                        $('#user-input').val('');
+                        // Always add user messages to the main chat window.
+                        addChatMessage('user', user_input, '#chat-history');
+                        $.post('/chat', { user_input: user_input }, function (data) {
+                            var msg_count = data.length;
+                            if (msg_count > 0) {
+                                for (var i = 0; i < msg_count; i++) {
+                                    if (data[i].response) {
+                                        let target;
+                                        // Route messages based on their role.
+                                        if (data[i].role === 'debug-agent') {
+                                            target = '#debug-history';
+                                        } else if (data[i].role === 'hud') {
+                                            // Route HUD messages to the inner HUD container.
+                                            target = '#hud-content';
+                                        } else {
+                                            target = '#chat-history';
+                                        }
+                                        addChatMessage(data[i].role, data[i].response, target);
+                                    }
+                                }
+                            }
+                        }, 'json');
+                    }
+                });
+
+                $('#user-input').on('keypress', function (e) {
+                    if (e.which === 13 && e.shiftKey) {
+                        e.preventDefault();
+                        $('#send-btn').click();
+                    }
+                });
+            });
+
+            function addChatMessage(sender, message, target) {
+                let formattedMessage;
+                if (target === '#debug-history') {
+                    // For the debug pane, display raw (monospace) text.
+                    formattedMessage = '<div class="raw-text">' + md.utils.escapeHtml(message) + '</div>';
+                } else if (target === '#hud-content') {
+                    // For the HUD pane, clear previous content and render only the message content.
+                    formattedMessage = md.render(message).trim();
+                    $(target).empty().html(formattedMessage);
+                    $(target).scrollTop($(target)[0].scrollHeight);
+                    return; // Do not add any extra markup.
+                } else {
+                    // For the main chat window, render markdown with sender info.
+                    formattedMessage = md.render(message).trim();
+                }
+                let chat_history = $(target);
+                let cssClass = sender + '-message';
+                chat_history.append(
+                    '<div class="' + cssClass + '"><strong>' +
+                    sender.charAt(0).toUpperCase() + sender.slice(1) +
+                    ':</strong><br><div class="message-content">' + formattedMessage + '</div></div>'
+                );
+                chat_history.scrollTop(chat_history[0].scrollHeight);
+            }
+
+            function obtainActiveMessage() {
+                console.log("obtainActiveMessage was called outside request in progress");
+                if (!requestInProgress) {
+                    console.log("obtainActiveMessage was called INSIDE request in progress");
+                    requestInProgress = true;
+                    $.ajax({
+                    url: '/active-message',
+                    dataType: 'json',
+                    cache: false,  // disable caching
+                    success: function (data) {
+                        var msg_count = data.length;
+                        if (msg_count > 0) {
+                        for (var i = 0; i < msg_count; i++) {
+                            if (data[i].response) {
+                            let target;
+                            if (data[i].role === 'debug-agent') {
+                                target = '#debug-history';
+                            } else if (data[i].role === 'hud') {
+                                target = '#hud-content';
+                            } else {
+                                target = '#chat-history';
+                            }
+                            addChatMessage(data[i].role, data[i].response, target);
+                            }
+                        }
+                        }
+                    },
+                    complete: function () {
+                        requestInProgress = false;
+                    }
+                    });
+                }
+            }
+
+        </script>
+    </body>
+</html>

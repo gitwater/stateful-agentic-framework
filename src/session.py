@@ -64,8 +64,17 @@ class AgenticFrameworkConfig:
         agent_config = self.framework_agent_config(agent_type, socratic_persona)
         return agent_config['openai_config']
 
+    def state_output_formats(self):
+        # Iterate over each state and build a string of the output formats
+        state_output_formats = ""
+        for state_name, state_config in self.config['states'].items():
+            if 'output_format' not in state_config:
+                continue
+            if state_output_formats == "":
+                state_output_formats = "State Output Formats:\n"
+            state_output_formats += f"{state_name}: <states.{state_name}.output_format>\n{state_config['output_format']}\n\n"
 
-
+        return state_output_formats
 
 class SessionState:
     def __init__(self, client_id, persona_config_path):
@@ -102,6 +111,9 @@ class SessionState:
         agent_msg = {'role': 'debug-agent', 'response': f"{message}"}
         self.agent_dialog_msgs.append(agent_msg)
 
+    def send_hud_message(self, message):
+        agent_msg = {'role': 'hud', 'response': f"{message}"}
+        self.agent_dialog_msgs.append(agent_msg)
 
     def pop_agent_dialog_messages(self):
         messages = self.agent_dialog_msgs

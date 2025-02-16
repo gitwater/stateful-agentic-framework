@@ -149,9 +149,9 @@ Your purpose is {persona_config['purpose']}.
                     framework_states += self.pstring("Goal Data", json.dumps(new_data), indent)
                 indent = indent[:-4]
             # state_data_output_format
-            if 'output_format' in state_config.keys():
-                framework_states += self.pstring("State Data Output Format", "", indent)
-                framework_states += self.pstring("", state_config['output_format'], indent)
+            # if 'output_format' in state_config.keys():
+            #     framework_states += self.pstring("State Data Output Format", "", indent)
+            #     framework_states += self.pstring("", state_config['output_format'], indent)
 
             indent += "  "
             framework_states += self.pstring(f"State Transition Criteria", "Only transition to another state when all of the {state_name}'s goals and their success criteria have been met.", indent)
@@ -184,6 +184,7 @@ The response should be provided in the following JSON format:
     "data": {persona_state_obj.data_schema_json}
 }}
 Ensure that the JSON response is loadable by json.loads(). Ensure that newlines are represented as '\\n' in the JSON response.
+Please rewrite the user's answers using a refined, professional tone suitable for formal documentation.
 """
         # Markdown Format Requirements
         response_and_markdown_format_requirements = """
@@ -198,6 +199,7 @@ Markdown Formatting Instructions:
 Other Response Instructions:
   - Never format JSON values using HTML or XML.
   - Always separate questions with a newline if they are part of a paragraph.
+  - Use the data in each of the states to help answer the existing state's goals and avoid asking the user questions if it does not need to.
 """
         # Framework Message
         framework_message = f"""{persona_info}
@@ -225,7 +227,7 @@ Current State: {current_state}
         self.put_conversation_history('user', user_input)
 
 
-    def interaction_get_starting_conversation(self):
+    def interaction_get_response(self, system_message, json_format_dict=None):
         messages = []
         prompt_messages = []
         framework_messages = self.get_framework_messages(messages)
@@ -233,15 +235,11 @@ Current State: {current_state}
 
         prompt_messages.append({
             "role": "system",
-            "content": f"The user has just begun a conversation with you, generate a response approrate for the starting point of the conversation based on the current state, its data, and goals (both framework and current state)."
+            "content": system_message
         })
 
-        json_format_dict = {
-            'agent_greeting_response': "<Place a welcome message here that describes the current state they are in, a summary of their progress. Do not ask questions here. Format with Markdown using the Markdown and Response Instructions.>",
-            'agent_question_response': "<Place a question here relevant to the current state to keep the conversation going. Format with Markdown using the Markdown and Response Instructions.>",
-        }
-
-        system_content = f"""
+        if json_format_dict != None:
+            json_response_content = f"""
 The response should be provided in the following JSON format:
 {json.dumps(json_format_dict, indent=4)}
 
@@ -251,7 +249,7 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
 
         prompt_messages.append({
             "role": "system",
-            "content": system_content
+            "content": json_response_content
         })
 
         for message in prompt_messages:
@@ -261,34 +259,71 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
         messages = framework_messages
         messages.extend(prompt_messages)
 
-
         response = self.get_response(messages, json_response=True)
-
         self.session.send_debug_message(f"Get Response:\n{json.dumps(response, indent=4)}")
+
+        return response
+
+    def interaction_get_starting_conversation(self):
+
+        start_conv_prompt = """The user has just begun a conversation with you, generate a response approrate for the
+starting point of the conversation based on the current state, its data, and goals (both framework and current state)."""
+
+        json_format_dict = {
+            'agent_greeting_response': "<Place a welcome message here that describes the current state they are in, a summary of their progress. Do not ask questions here. Format with Markdown using the Markdown and Response Instructions.>",
+            'agent_question_response': "<Place a question here relevant to the current state to keep the conversation going. Format with Markdown using the Markdown and Response Instructions.>",
+        }
+
+        response = self.interaction_get_response(start_conv_prompt, json_format_dict)
 
         agent_response = f"""
 {response['agent_greeting_response']}\n
 {response['agent_question_response']}
 """
         self.session.send_user_message(agent_response)
-        #self.session.send_user_message(response['agent_greeting_response'])
-        #self.session.send_user_message(response['agent_question_response'])
-        # self.session.send_user_message(response['agent_greeting'])
-        # self.session.send_user_message(response['current_context'])
-        # self.session.send_user_message(response['next_steps'])
-        # self.session.send_user_message(response['agent_question'])
         self.put_conversation_history('agent', response['agent_question_response'])
 
-        #self.persona_config['data_objects']['framework']['user_state'] = response['user_state']
         self.session.init_complete = True
+
+        # Render the HUD content and send it to the user
+        self.interaction_update_hud_content()
+
+        return True
+
+    def interaction_update_hud_content(self):
+        hud_prompt_message = f"""Generate the HUD content replacing <variables> with the state data
+Only replace the text between the <variable> with the state data and the state output format.
+
+HUD Content Template:
+{self.persona_config.config['hud']['content_markdown']}
+
+Instructions:
+* Replace <var1.var2> variable tags with real content from the state data.
+* If real content from the state is not available, insert the string 'TBD' in place of the content.
+"""
+
+        hud_prompt_message += self.persona_config.state_output_formats()
+
+        json_format_dict = {
+            'hud_content': "<Generate HUD content <variables> using state data. Format with Markdown using the Markdown and Response Instructions.>",
+        }
+
+        response = self.interaction_get_response(hud_prompt_message, json_format_dict)
+
+        self.session.send_hud_message(response['hud_content'])
 
         return True
 
     # Processes the interactions with the User
     def interactions(self, user_input=None):
+        update_hud = False
         if user_input != None:
             self.process_user_input(user_input)
+            update_hud = True
         elif self.session.init_complete == False:
             self.interaction_get_starting_conversation()
 
-        return self.agent.interactions(user_input)
+        success = self.agent.interactions(user_input)
+        if update_hud:
+            self.interaction_update_hud_content()
+        return success
