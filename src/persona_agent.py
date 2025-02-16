@@ -14,13 +14,12 @@ class PersonaAgent:
         self.session = session
         self.persona_config = persona_config
         self.sql_db = SQLDatabase(persona_config.config)
-        self.socratic_agent = SocraticAgent(session, self)
-        self.single_agent = SingleAgent(session, self)
         self.state_manager = PersonaStateManager(persona_config.config, self.sql_db)
 
         if self.persona_config.config['framework_settings']['reasoning_agent'] == "socratic":
-            self.agent = self.socratic_agent
+            self.agent = SocraticAgent(session, self)
         else:
+            self.single_agent = SingleAgent(session, self)
             self.agent = self.single_agent
 
         self.current_user_input = None
@@ -144,6 +143,8 @@ Your purpose is {persona_config['purpose']}.
                     # Merge state_data and data_config into new_data.
                     # if the value of a state_data key is None, then use the value from data_config
                     for (key, value) in data_config.items():
+                        if goal_name not in state_data['goals'].keys():
+                            state_data['goals'][goal_name] = {'data': {}}
                         if 'data' not in state_data['goals'][goal_name].keys():
                             breakpoint()
                         if key not in state_data['goals'][goal_name]['data'].keys():
