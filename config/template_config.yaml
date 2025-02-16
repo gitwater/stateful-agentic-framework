@@ -1,9 +1,14 @@
 # Prompt for generating a real world stateful agent framework configuration:
 #
-# You are a Neuropsycologist with the purpose of assessing  employees for and then helping them with workplace burnout.
+# You are a <role> with the purpose of <purpose>.
+#
 # Please first investigate and create a plan for generating a real world stateful agent framework configuration using using the role that you have declared. Generate as many states as required that a professional in this space would apply to a real situation. Also generate the HUD and any other parts of the configuration to ensure that this agent config includes all of the relevant information and design to achieve your purpose.
 # Use state names that reflect its purpose.
+#
+# <Insert any other details that are relevant to the agents role and purpsoe.
+#
 # Use the following configuration template as the structure of the configuration.
+
 
 
 persona:
