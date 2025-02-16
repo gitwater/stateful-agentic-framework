@@ -8,6 +8,7 @@ from memory import AgentMemory
 from datetime import datetime
 import hashlib
 from agent import AgentCore
+import logging
 
 debug_printing = False
 debug_printing = True
@@ -19,7 +20,7 @@ class SocraticAgentCore(AgentCore):
     def __init__(self, socratic_persona, persona_agent, model=None):
 
         llm_config = persona_agent.persona_config.framework_llm_config('socratic', socratic_persona=socratic_persona.lower())
-        super().__init__(persona_agent, llm_config)
+        super().__init__(f"SocraticAgent {socratic_persona}", persona_agent, llm_config)
 
         if llm_config['model'] in AgentCore.openai_model_list:
             # OpenAI Prompt Role config
@@ -238,15 +239,15 @@ class PlatoAgent(SocraticAgentCore):
         #msg = self.get_anthropic_response(self.history + [pf_template])
         messages = self.get_framework_messages() + [pf_template]
         msg = self.get_response(messages, add_to_history=True)
-        #print("\n-----------------------------------\n")
-        #print("\nPlato Proofread it!\n")
+        #logging.info("\n-----------------------------------\n")
+        #logging.info("\nPlato Proofread it!\n")
 
         # Check if msg contains "Please see my previous suggestions" increment a counter
         if "Please see my previous suggestions" in msg:
             self.proofread_see_previous_suggestions_count += 1
 
-        print(f"############## Proofread suggestions count: {self.proofread_suggestions_count} >= {self.proofread_suggestions_count_max}\n")
-        print(f"############## Proofread previous suggestions count: {self.proofread_see_previous_suggestions_count} >= {self.proofread_suggestions_count_max}\n")
+        logging.info(f"############## Proofread suggestions count: {self.proofread_suggestions_count} >= {self.proofread_suggestions_count_max}\n")
+        logging.info(f"############## Proofread previous suggestions count: {self.proofread_see_previous_suggestions_count} >= {self.proofread_suggestions_count_max}\n")
         if msg.find(suggestions_string) != -1:
             self.proofread_suggestions_count += 1
 
@@ -290,7 +291,7 @@ class SocraticAgent:
         self.session.agent_session.dialog_lead, self.session.agent_session.dialog_follower = self.socrates, self.theaetetus
 
         self.session.send_agent_dialog_message('Socrates', f"Hi Theaetetus, let's solve this problem together. Please feel free to correct me if I make any logical mistakes.")
-        print(f"Starting Socratic Conversation")
+        logging.info(f"Starting Socratic Conversation")
         return True
 
     def interaction_final_answer(self, rep):
@@ -317,11 +318,11 @@ class SocraticAgent:
         else:
             breakpoint()
         if debug_printing:
-            print("user_input:", self.session.user_input)
-            print("in_progress:", self.session.agent_session.in_progress)
-            #print("msg list:")
-            #print(msg_list)
-            print("end conversation reset")
+            logging.info("user_input:", self.session.user_input)
+            logging.info("in_progress:", self.session.agent_session.in_progress)
+            #logging.info("msg list:")
+            #logging.info(msg_list)
+            logging.info("end conversation reset")
 
         self.reset_response_conversation()
         self.session.agent_session.in_progress_sub = False
@@ -342,7 +343,7 @@ class SocraticAgent:
             #     for fed in feedback:
             #         q, a = fed["question"], fed["answer"]
             #         if debug_printing:
-            #             print(f"\033[1mThe User:\033[0m Received Question: {q}\n\n  Answer: {a}\n")
+            #             logging.info(f"\033[1mThe User:\033[0m Received Question: {q}\n\n  Answer: {a}\n")
             #         self.add_user_feedback(q, a)
 
         self.session.agent_session.dialog_lead, self.session.agent_session.dialog_follower = self.session.agent_session.dialog_follower, self.session.agent_session.dialog_lead
@@ -352,9 +353,9 @@ class SocraticAgent:
 
     def interaction_continue_socratic_conversation(self):
         #user_response_msg_list = []
-        print(f"Continuing Socratic Conversation: {self.session.agent_session.in_progress_sub}")
+        logging.info(f"Continuing Socratic Conversation: {self.session.agent_session.in_progress_sub}")
         if True == True: # and self.session.in_progress_sub == False:
-            print(f"Continuing Socratic Conversation: deliberating...")
+            logging.info(f"Continuing Socratic Conversation: deliberating...")
             self.session.agent_session.in_progress_sub = True
             rep = self.session.agent_session.dialog_follower.get_response(messages=None, add_to_history=True)
             self.session.send_agent_dialog_message(self.session.agent_session.dialog_follower.socratic_persona, rep)
@@ -370,12 +371,12 @@ class SocraticAgent:
             # Sure fire way of detect "@FAStart" in the response
             if ("@FAStart" in rep):
                 # or ("The context length exceeds my limit..." in rep):
-                print(f"Socratic Conversation: Final answer detected")
+                logging.info(f"Socratic Conversation: Final answer detected")
                 success = self.interaction_final_answer(rep)
                 if success == False:
                     breakpoint()
             elif self.session.agent_session.in_progress_sub == True and self.session.agent_session.in_progress == True:
-                print(f"Continuing Socratic Conversation: Proofreading")
+                logging.info(f"Continuing Socratic Conversation: Proofreading")
                 success = self.interaction_proofread()
                 if not success:
                     breakpoint()
@@ -388,13 +389,13 @@ class SocraticAgent:
             #             message['response'] = 'Deliberating...'
 
             if debug_printing:
-                print("user_input:", self.session.user_input)
-                print("in_progress:", self.session.agent_session.in_progress)
-                #print("msg list:")
-                #print(user_response_msg_list)
+                logging.info("user_input:", self.session.user_input)
+                logging.info("in_progress:", self.session.agent_session.in_progress)
+                #logging.info("msg list:")
+                #logging.info(user_response_msg_list)
         else:
             if debug_printing:
-                print("Processing User Input")
+                logging.info("Processing User Input")
 
         return True
         #return json.dumps(user_response_msg_list)
@@ -402,10 +403,10 @@ class SocraticAgent:
     # def interaction_ask_for_more_questions(self):
     #     self.session.asked_question = True
     #     if debug_printing:
-    #         print("user_input:", self.session.user_input)
-    #         print("asked_question:", self.session.asked_question)
-    #         print("in_progress:", self.session.in_progress)
-    #         print("ask user's question")
+    #         logging.info("user_input:", self.session.user_input)
+    #         logging.info("asked_question:", self.session.asked_question)
+    #         logging.info("in_progress:", self.session.in_progress)
+    #         logging.info("ask user's question")
     #     if self.session.first_question:
     #         msg = "What's your question?"
     #     else:
@@ -446,8 +447,8 @@ class SocraticAgent:
         # If the user has not provided input, and the agent has already asked a question
         # Do nothing
         # if debug_printing:
-        #     print("user_input:", self.session.user_input)
-        #     print("in_progress:", self.session.agent_session.in_progress)
-        #     print("no question skip")
+        #     logging.info("user_input:", self.session.user_input)
+        #     logging.info("in_progress:", self.session.agent_session.in_progress)
+        #     logging.info("no question skip")
 
         return True

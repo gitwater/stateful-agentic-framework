@@ -7,6 +7,8 @@ from pprint import pprint
 import json
 from types import SimpleNamespace
 import yaml
+import logging
+import queue
 
 class AgenticFrameworkConfig:
     def __init__(self, config_path):
@@ -34,7 +36,7 @@ class AgenticFrameworkConfig:
                     data = {}
                 return data
             except yaml.YAMLError as exc:
-                print(f"Error parsing YAML file: {exc}")
+                logging.info(f"Error parsing YAML file: {exc}")
                 raise
 
         return data
@@ -84,11 +86,18 @@ class SessionState:
         self.agent_dialog_msgs = []
         # Init will assess the current state of the User to decide where to start
         self.init_complete = False
+        self.conversation_started = False
         self.agent_session = None
+        self.user_input_queue = queue.Queue()
         # Load a JSON file from the path provided
-        persona_config = AgenticFrameworkConfig(persona_config_path)
+        self.persona_config = AgenticFrameworkConfig(persona_config_path)
 
-        self.agent = PersonaAgent(self, persona_config )
+    def init_session(self):
+        if self.init_complete == True:
+            return
+        logging.info(f"Initializing session for client {self.client_id}")
+        self.agent = PersonaAgent(self, self.persona_config)
+        self.init_complete = True
 
     def load_config(filename):
         with open(filename, 'r') as file:

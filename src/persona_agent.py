@@ -5,10 +5,12 @@ from sql_database.core import SQLDatabase
 from memory import AgentMemory
 import json
 from pprint import pprint
+import sys
+import logging
 
 class PersonaAgent:
 
-    def __init__(self, session, persona_config, model=None):
+    def __init__(self, session, persona_config):
         self.session = session
         self.persona_config = persona_config
         self.sql_db = SQLDatabase(persona_config.config)
@@ -36,6 +38,8 @@ class PersonaAgent:
         if role not in ['user', 'agent']:
             breakpoint()
 
+        if type(message) == bool:
+            breakpoint()
         self.memory_system.store_utterance(role, message)
 
     def get_response(self, messages, json_response=False):
@@ -142,6 +146,8 @@ Your purpose is {persona_config['purpose']}.
                     for (key, value) in data_config.items():
                         if 'data' not in state_data['goals'][goal_name].keys():
                             breakpoint()
+                        if key not in state_data['goals'][goal_name]['data'].keys():
+                            state_data['goals'][goal_name]['data'][key] = None
                         if state_data['goals'][goal_name]['data'][key] == None:
                             new_data[key] = value
                         else:
@@ -200,6 +206,7 @@ Other Response Instructions:
   - Never format JSON values using HTML or XML.
   - Always separate questions with a newline if they are part of a paragraph.
   - Use the data in each of the states to help answer the existing state's goals and avoid asking the user questions if it does not need to.
+  - If the user asks to switch to a different state, then switch to that state and perform the actions they asked or ask questions if needed.
 """
         # Framework Message
         framework_message = f"""{persona_info}
@@ -281,14 +288,12 @@ starting point of the conversation based on the current state, its data, and goa
 {response['agent_question_response']}
 """
         self.session.send_user_message(agent_response)
-        self.put_conversation_history('agent', response['agent_question_response'])
-
-        self.session.init_complete = True
+        self.session.conversation_started = True
 
         # Render the HUD content and send it to the user
         self.interaction_update_hud_content()
 
-        return True
+        return response['agent_question_response']
 
     def interaction_update_hud_content(self):
         hud_prompt_message = f"""Generate the HUD content replacing <variables> with the state data
@@ -317,13 +322,20 @@ Instructions:
     # Processes the interactions with the User
     def interactions(self, user_input=None):
         update_hud = False
+        agent_response = None
         if user_input != None:
             self.process_user_input(user_input)
             update_hud = True
-        elif self.session.init_complete == False:
-            self.interaction_get_starting_conversation()
 
-        success = self.agent.interactions(user_input)
+        if self.session.conversation_started == False:
+            agent_response = self.interaction_get_starting_conversation()
+        else:
+            agent_response = self.agent.interactions(user_input)
+
         if update_hud:
             self.interaction_update_hud_content()
-        return success
+
+        if agent_response != None:
+            self.put_conversation_history('agent', agent_response)
+
+        return True

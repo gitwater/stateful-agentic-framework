@@ -23,7 +23,7 @@ class CLI:
                 subsequent_indent=subsequent_indent)
             full_wrapped_text += wrapped_text + '\n'
             if not quiet:
-                print(wrapped_text)
+                logging.info(wrapped_text)
             initial_indent = subsequent_indent
         return full_wrapped_text
 
@@ -34,9 +34,9 @@ class CLI:
             breakpoint()
         for message in write_data:
             #normalized_response = message['response'][:65].replace('\n', ' ')
-            #print(f"{message['role']}: {normalized_response}")
+            #logging.info(f"{message['role']}: {normalized_response}")
             self.write(f"{message['role']}: {message['response']}", quiet, initial_indent='    ', subsequent_indent='        ')
-            print()
+            logging.info()
 
     def read_input(self, prompt=None):
         if prompt == None:
@@ -46,7 +46,7 @@ class CLI:
             user_input = input(prompt)
         except EOFError:
             # Handle EOF (Ctrl-D) gracefully
-            print("\nInput interrupted.")
+            logging.info("\nInput interrupted.")
             return None
 
         return user_input

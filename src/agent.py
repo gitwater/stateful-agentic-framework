@@ -2,6 +2,7 @@
 import json
 import openai
 import anthropic
+import logging
 
 debug_token_printing = True
 
@@ -9,14 +10,13 @@ class AgentCore:
     openai_model_list = ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo']
     anthropic_model_list = ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest']
 
-    def __init__(self, persona_agent, llm_config):
+    def __init__(self, agent_type, persona_agent, llm_config):
         self.persona_agent = persona_agent
         self.response_history = []
         self.llm_config = llm_config
 
 
         self.model = self.llm_config['model']
-        print(f"LLM Model: {self.model}")
         if self.model in self.openai_model_list:
             self.llm_client = openai.OpenAI()
             self.llm_vendor = 'openai'
@@ -26,9 +26,10 @@ class AgentCore:
             self.llm_vendor = 'anthropic'
             self.anthropic_config = self.llm_config['anthropic_config']
         else:
-            print("LLM model NOT set")
+            logging.info("LLM model NOT set!!!")
             breakpoint()
 
+        logging.info(f"{agent_type} initialized with model: {self.model}")
 
     def get_gpt_response(self, messages, json_response=False):
         # Get OpenAI LLM configuration from Persona Framework Config
@@ -53,7 +54,7 @@ class AgentCore:
             else:
                 # Handle other errors here
                 msg = f"I enconter an when using my backend model.\n\n Error: {str(e)}"
-            print(f"!!! ERROR: {msg}: Retrying!!")
+            logging.info(f"!!! ERROR: {msg}: Retrying!!")
             breakpoint()
             return ""
 
@@ -71,7 +72,7 @@ class AgentCore:
             )
             #breakpoint()
         except Exception as e:
-            print(e)
+            logging.info(e)
             breakpoint()
         response = ''.join(block.text for block in message.content)
         if response == "":
@@ -94,7 +95,7 @@ class AgentCore:
                 encoding_format="float"
             )
         else:
-            print("LLM API not set")
+            logging.info("LLM API not set")
             breakpoint()
 
         return embeddings.data[0].embedding
@@ -110,22 +111,22 @@ class AgentCore:
             elif self.llm_vendor == "openai":
                 msg = self.get_gpt_response(messages, json_response)
             else:
-                print("LLM API not set")
+                logging.info("LLM API not set")
                 breakpoint()
             if len(msg) > 0:
                 break
             count += 1
             if count > 5:
-                print("No response from the model")
+                logging.info("No response from the model")
                 breakpoint()
             else:
-                print(">>>>>>> No response from the model, retrying...")
+                logging.info(">>>>>>> No response from the model, retrying...")
                 breakpoint()
 
         # Print the number of tokens in the messages and the response
         # A token is 4 bytes
         if debug_token_printing:
-            print(f"\n>>>>>>>>> Get Response: Input Tokens: {len(''.join([m['content'] for m in messages]))/4}: Output Tokens: {len(msg)/4}\n")
+            logging.info(f"\n>>>>>>>>> Get Response: Input Tokens: {len(''.join([m['content'] for m in messages]))/4}: Output Tokens: {len(msg)/4}\n")
 
         if json_response:
             msg = json.loads(msg)

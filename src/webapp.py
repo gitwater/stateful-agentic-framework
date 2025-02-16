@@ -1,17 +1,22 @@
 from flask import Flask, render_template, request, jsonify, session
 from flask_session import Session
 import sys, os
-from subprocess import TimeoutExpired
-from session import SessionState
-
-#from socratic_agent import *
-#from persona_agent import PesonaAgent
+import threading
+import queue
 import logging
+import time
+from session import SessionState, AgenticFrameworkConfig
+
+# from socratic_agent import *
+# from persona_agent import PesonaAgent
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
-#logging.basicConfig(level=logging.ERROR)
-
+logging.basicConfig(
+    level=logging.INFO,
+    format="",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 
 app = Flask(__name__)
 app.config['SESSION_TYPE'] = 'filesystem'
@@ -19,118 +24,116 @@ app.secret_key = 'socraticalpaca'
 Session(app)
 
 last_client_id = 0
-session_states = {}
+session_states = {}  # Maps client_id to SessionState
 chat_count = 0
 
-request_locks = {}
-
 persona_config_path = None
+persona_config = None
+
+def process_session(session_state):
+    """
+    Long running thread for a given session. It watches the session's user_input_queue.
+    When new input is enqueued (even if the agent is busy processing a previous input),
+    it will process them sequentially.
+    """
+    logging.info("Before init session")
+    session_state.init_session()
+    logging.info("Entering Agent main loop")
+    while True:
+        # This call blocks until new user input is available.
+        # Non blocking queue get
+        try:
+            user_input = session_state.user_input_queue.get(block=False)
+        except queue.Empty:
+            user_input = None
+        # Process the input (this call may take a while).
+        success = session_state.agent.interactions(user_input)
+        if not success:
+            # You can add error handling here if needed.
+            app.logger.error(f"Error processing input for client {session_state.client_id}")
+        # After processing, the agent is assumed to have pushed messages onto its internal queues.
+        # (No need to signal the HTTP thread; /active-message will poll for new messages.)
+        # Mark the task as done (if you are using task_done() in your queue logic).
+        if user_input is not None:
+            session_state.user_input_queue.task_done()
+        # Sleep for a slit second to avoid busy waiting.
+        # (You can adjust this value based on your needs.)
+        time.sleep(0.1)
 
 @app.route('/')
 def index():
     global last_client_id
     global persona_config_path
+    global persona_config
+
+    if persona_config is None:
+        persona_config = AgenticFrameworkConfig(persona_config_path)
+
     last_client_id += 1
     session['client_id'] = last_client_id
-    session_states[last_client_id] = SessionState(last_client_id, persona_config_path)
-    #return render_template('index.html')
-    #return render_template('index_debug.html', agent_name=session_states[last_client_id].agent.persona_config.config['persona']['name'])
-    #return render_template('index_debug_2.html', agent_name=session_states[last_client_id].agent.persona_config.config['persona']['name'])
-    return render_template('index_hud.html', agent_name=session_states[last_client_id].agent.persona_config.config['persona']['name'])
 
+    # Create a new session state for this client.
+    # Note: We now assume that the SessionState (and its agent) will be used exclusively
+    # in the dedicated thread created below.
+    session_state = SessionState(last_client_id, persona_config_path)
+    # Create a thread-safe queue for user input.
+    session_states[last_client_id] = session_state
+
+    # Start a dedicated worker thread for this session.
+    t = threading.Thread(target=process_session, args=(session_state,), daemon=True)
+    t.start()
+
+    # Render the index page. (Uncomment the template you wish to use.)
+    return render_template('index_hud.html', agent_name=persona_config.config['persona']['name'])
 
 @app.route('/active-message')
 def active_message():
-
-    global last_client_id, session_states, request_locks, persona_config_path
-
     client_id = int(session['client_id'])
-    #if client_id not in request_locks:
-    #    request_locks[client_id] = threading.Lock()
+    session_state = session_states.get(client_id)
 
-    #request_lock = request_locks[client_id]
-    # print(f"{client_id}: Request locked? 1: {request_lock.locked()}")
-    # print(f"Lock aquire 1: {request_lock.acquire()}")
-    # print(f"{client_id}: Request locked? 2: {request_lock.locked()}")
-    # print(f"Lock aquire 2: {request_lock.acquire()}")
-    # print(f"Lock aquire 3: {request_lock.acquire()}")
-    #request_lock.aquire()
-    user_messages = []
-    if True == True: #request_lock.acquire(blocking=False) == True:
-        #print(f"{client_id}: Request lock after : {request_lock.locked()}")
-        if client_id > last_client_id:
-            print("current session id", client_id)
-            print("last_client_id", last_client_id)
-            last_client_id = client_id
-            session_states[last_client_id] = SessionState(last_client_id, persona_config_path)
+    if not session_state:
+        return jsonify([])
 
-        session_state = session_states[client_id]
-        success = session_state.agent.interactions()
-        if success:
-            user_messages = session_state.pop_user_messages()
-            deliberation_messages = session_state.pop_agent_dialog_messages()
-            user_messages.extend(deliberation_messages)
-        else:
-            breakpoint()
-        #request_lock.release()
-    else:
-        print(f"{client_id}: Request lock: interaction in progress")
+    # Instead of calling interactions() here, we simply return any messages that the
+    # dedicated thread has pushed into the agent's message queues.
+    user_messages = session_state.pop_user_messages()
+    deliberation_messages = session_state.pop_agent_dialog_messages()
+    user_messages.extend(deliberation_messages)
 
     return jsonify(user_messages)
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    global session_states
     global chat_count
     client_id = int(session['client_id'])
-    session_state = session_states[client_id]
+    session_state = session_states.get(client_id)
+
+    if not session_state:
+        return jsonify({'status': 'error', 'message': 'Invalid session.'}), 400
 
     user_input = request.form['user_input']
     chat_count += 1
-    print(f"--------------> User input: {user_input}: {chat_count}")
-    success = session_state.agent.interactions(user_input)
-    if success:
-        user_messages = session_state.pop_user_messages()
-        return jsonify(user_messages)
+    app.logger.info(f"Client {client_id} input #{chat_count}: {user_input}")
 
-    return jsonify([])
-    # if session_state.question is None:
-    #     session_state.question = user_input
-    #     session_state.socrates.set_question(session_state.question)
-    #     session_state.theaetetus.set_question(session_state.question)
-    #     session_state.plato.set_question(session_state.question)
-    #     response = generate_response(user_input, mode="question")
+    # Instead of processing the input immediately, we enqueue it.
+    session_state.user_input_queue.put(user_input)
 
-    # if session_state.wait_tony:
-    #     feedback = user_input
-    #     session_state.socrates.add_feedback(session_state.all_questions_to_tony, feedback)
-    #     session_state.theaetetus.add_feedback(session_state.all_questions_to_tony, feedback)
-    #     session_state.plato.add_feedback(session_state.all_questions_to_tony, feedback)
-    #     session_state.all_questions_to_tony = ""
-    #     session_state.wait_tony = False
-    #     response = generate_response(user_input, mode="feedback")
-    return jsonify([{'role': 'system','response': response}])
-
-
-# def generate_response(user_input, mode="question"):
-#     if mode == "question":
-#         return f"You just said: {user_input}\n\nA conversation among (Socrates, Theaetetus, and Plato) will begin shortly..."
-#     elif mode == "feedback":
-#         return f"Received your feedback: {user_input}"
-#     return "Connecting..."
-
+    # Return immediately; the dedicated thread will process the input.
+    return jsonify({'status': 'queued'})
 
 if __name__ == '__main__':
-    # Print a usage message if the user does not provide any arguments
+    os.environ["CHROMA_DISABLE_TELEMETRY"] = "true"
+
+    # Usage check for the persona config path.
     if len(sys.argv) < 2:
-        print("Usage: python src/webapp.py <config_path>")
+        logging.info("Usage: python src/webapp.py <config_path>")
         sys.exit(1)
-    # Get the first argument which is a config file path
     persona_config_path = sys.argv[1]
-    # Verify the config path is vaid and exists
     if not os.path.exists(persona_config_path):
-        print(f"Invalid config path: {persona_config_path}")
+        logging.info(f"Invalid config path: {persona_config_path}")
         sys.exit(1)
 
-
+    # Start the Flask app.
+    # Note: threaded=False ensures that our dedicated threads (for each session) are used
+    # for the agent interactions while Flask handles HTTP requests in its own way.
     app.run(port=8000, debug=False, threaded=False)

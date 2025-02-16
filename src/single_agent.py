@@ -1,12 +1,13 @@
 from agent import AgentCore
 from pprint import pprint
 import json
+import logging
 
 
 class SingleAgent(AgentCore):
     def __init__(self, session, persona_agent):
         llm_config = persona_agent.persona_config.framework_llm_config("single")
-        super().__init__(persona_agent, llm_config)
+        super().__init__("SingleAgent", persona_agent, llm_config)
         self.session = session
         self.system_role = f"""
 You are {self.persona_agent.persona_config.config['persona']['name']}, a {self.persona_agent.persona_config.config['persona']['description']}.
@@ -77,22 +78,18 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
         #breakpoint()
         self.session.send_user_message(llm_response['agent_response'])
 
-        return True
+        return llm_response['agent_response']
 
 
     def interactions(self, user_input=None):
-        if user_input == None:
-            if self.session.init_complete == False:
-                # Query the Agent for the next steps
-                self.interaction_get_conversation_start_point()
-        else:
-            # Continue the Socratic conversation to generate a response to the user's input
-            self.interaction_respond_to_user_input()
+        agent_response = None
+        if user_input != None:            # Continue the Socratic conversation to generate a response to the user's input
+            agent_response = self.interaction_respond_to_user_input()
 
         # If the user has not provided input, and the agent has already asked a question
         # Do nothing
         # if debug_printing:
-        #     print("user_input:", self.session.user_input)
-        #     print("in_progress:", self.session.agent_session.in_progress)
-        #     print("no question skip")
-        return True
+        #     logging.info("user_input:", self.session.user_input)
+        #     logging.info("in_progress:", self.session.agent_session.in_progress)
+        #     logging.info("no question skip")
+        return agent_response

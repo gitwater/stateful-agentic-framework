@@ -4,7 +4,7 @@ from datetime import datetime
 import hashlib
 import chromadb
 from pprint import pprint
-
+import logging
 
 
 # Short buffer of the most recent conversational messages
@@ -35,7 +35,7 @@ class MemoryLongTerm:
     def __init__(self, name, memory_system, sql_db):
         self.sql_db = sql_db
         self.memory_system = memory_system
-        self.vector_db_client = chromadb.PersistentClient(path=f"./db/vector/{name}.db")
+        self.vector_db_client = chromadb.PersistentClient(path=f"./db/vector/{name}.db", settings=chromadb.config.Settings(anonymized_telemetry=False))
         self.episodic_collection = self.vector_db_client.get_or_create_collection(
             "long_term_episodic_memory",
             metadata={
@@ -186,7 +186,7 @@ must be short and token-efficient, yet contain enough detail to be useful for me
         if len(utterance_list) < 50:
             return
 
-        print(f">>>>>>>>> system: Detecting topic boundaries for {len(utterance_list)} utterances")
+        logging.info(f">>>>>>>>> system: Detecting topic boundaries for {len(utterance_list)} utterances")
 
         # Analyze the conversation to detect topic boundaries
         # If detected analyze the conversation to extract metadata for episodic and semantic memory
@@ -512,7 +512,7 @@ class AgentMemory:
 
         memory_context = f"{short_memory_context}\n{long_memory_context}"
 
-        print(f">>>>>>>>> system:  Get memory: Short = {len(short_memory_context)}, Long = {len(long_memory_context)}")
+        logging.info(f">>>>>>>>> system:  Get memory: Short = {len(short_memory_context)}, Long = {len(long_memory_context)}")
 
         return memory_context
 
