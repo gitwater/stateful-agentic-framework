@@ -15,11 +15,11 @@ A **declarative, configuration-based** approach for building conversational agen
 5. [Configuration](#configuration)
 6. [Usage](#usage)
 7. [Databases](#databases)
-8. [Examples](#examples)
-9. [TODO / Roadmap](#todo--roadmap)
-10. [Contributing](#contributing)
-11. [License](#license)
-12. [Acknowledgments](#acknowledgments)
+8. [TODO / Roadmap](#todo--roadmap)
+9. [Contributing](#contributing)
+10. [License](#license)
+11. [Acknowledgments](#acknowledgments)
+12. [Contributors](#contributors)
 
 ---
 
@@ -84,35 +84,61 @@ Despite its evolving nature, we believe this framework offers a promising direct
 
 ## Configuration
 
-### Agent Configuration (YAML)
-Create an agent configuration by following the instructions at the top of `config/template_config.yaml`. Below is a simplified snippet from the template:
+Although you can manually edit the YAML files to define your agent, one of the **fastest and most flexible** ways to create or update a configuration is by using a Large Language Model (LLM). You can use any generative model (e.g., OpenAI, Anthropic, Gemini, etc.) to quickly produce a structured configuration that suits your agent’s specific role and purpose.
 
-```yaml
-persona:
-  name: "<agent name>"
-  description: |
-    <Enter a brief description of the agent.>
-  purpose: |
-    <Enter the purpose of the agent.>
+### 1. Use an LLM Prompt to Generate a Configuration
 
-states:
-  example_state_1:
-    purpose: |
-      <Enter the purpose of this state.>
-    output_format: |
-      **Example Data:** <states.example_state_1.goals.gather_initial_info.data.initial_info>
-    goals:
-      example_1_goal:
-        goal: |
-          <Enter the goal of this state.>
-        data:
-          example_1_variable: "type <data_type>: <Enter the data description here>"
+Copy and paste the prompt below along with the `config/template_config.yaml` file into your preferred LLM interface, replacing the placeholders (`<role>`, `<purpose>`) and adding additional details as needed to align with your agent’s objectives.
+
+```text
+# Prompt for generating a real world Stateful Agent Framework configuration:
+---------------------------------------------------------------------------------
+You are a <role> with the purpose of <purpose>.
+
+Please first investigate and create a plan for generating a real world Stateful Agentic Framework configuration 
+using the role that you have declared. Generate as many states as required that a professional in this space 
+would apply to a real situation. Also generate the HUD and any other parts of the configuration to ensure that 
+this agent config includes all relevant information and design to achieve your purpose.
+Use state names that reflect their purpose.
+
+<Research and include any other details relevant to the agent's role and purpose here.>
+
+<Paste config/template_config.yaml here>
+---------------------------------------------------------------------------------
 ```
 
-Within each `state` you define:
-- **purpose**: A short description of what that state is meant to accomplish.  
-- **output_format**: A template describing how the output will be displayed.  
-- **goals**: Each goal can contain sub-goals and a data structure.
+When you submit this prompt, the LLM will provide a YAML configuration that you can then copy into your project. Adjust or refine any of the generated fields as needed for your application.
+
+### 2. Validate, Refine, and Fine-Tune
+
+After generating your initial YAML configuration using an LLM, it’s critical to **validate**, **refine**, and **fine-tune** it to ensure your agent behaves as intended. Here’s what we recommend:
+
+1. **Review the Generated Configuration**  
+   - Check that each state aligns with your conversation flow, goals, and overall purpose.  
+   - Ensure the persona and data structures meet your use case requirements.
+   - Spend time researching the role, methodologies, and domain-specific constraints with an LLM to generate comprehensive, detailed content for your agent. This ensures each state and goal is deeply informed by best practices, relevant regulations, real-world scenarios, and user needs—ultimately leading to more accurate and engaging interactions.
+  
+2. **Update or Remove Unnecessary Data**  
+   - The LLM may provide extra states or data fields. Feel free to delete or rename them as needed.  
+   - Simplify or elaborate on any text values (purpose, goals, data descriptions, etc.) to better fit your agent’s role.
+
+3. **Iterate & Test**  
+   - Run the framework with your updated configuration and observe its output.  
+   - Experiment with different phrasing and formatting to see how the agent’s responses change.  
+   - We highly recommend versioning your configuration (e.g., via Git) so you can easily revert to a working setup if necessary.
+   - **Important:** If you modify states and their data structures, the database might go out of sync. Due to the experimental nature of this framework, the only workaround is to remove the databases and start over. Refer to the [Databases](#databases) section for details on where your data is stored.     
+
+4. **Continue Fine-Tuning**  
+   - As you refine the YAML, adjusting text values in the persona, states, goals, and data structures can significantly alter the agent’s behavior.  
+   - Keep iterating until you find a setup that aligns perfectly with your objectives.  
+   - For large or collaborative projects, consider storing your configuration in a shared repository so the entire team can review and propose improvements.
+
+5. **Share Feedback & Contribute**  
+   - If you find new patterns or have ideas to improve the core architecture, we’d love your input!  
+   - Feel free to open an **issue** or submit a **pull request** to this repository with your suggestions, bug reports, or enhancements.  
+   - Your contributions help the community evolve the framework and ensure that future releases stay robust and feature-rich.
+
+By taking the time to validate, refine, and fine-tune your configuration, you’ll craft an agent that is both **highly functional** and **tailored** to your unique needs—all while helping to improve the project for everyone.
 
 ---
 
@@ -142,17 +168,6 @@ The framework uses local databases to store conversation data:
 - **Vector Database**: `db/vector/<agent name>.db/`
 
 The vector database is used to store semantic embeddings for long-term memory retrieval, while the SQL database is for structured data, states, and other agent metadata.
-
----
-
-## Examples
-
-1. **Simple State Configuration**  
-   - Check `config/template_config.yaml` for a minimal configuration example.  
-   - Copy the file, fill in your `persona`, `states`, `goals`, and run.
-
-2. **Advanced Setup**  
-   - Modify default settings and experiment with advanced states, custom data structures, or specialized reasoning agents.
 
 ---
 
@@ -199,6 +214,17 @@ This project is released under the [MIT License](LICENSE). Feel free to modify a
 
 - Inspired by leading conversational frameworks and modern agentic architectures.
 - Big thanks to the open-source community for libraries like [OpenAI](https://github.com/openai), [ChromaDB](https://github.com/chroma-core), and more.
+
+---
+
+## Contributors
+
+This project is developed by **Waterbear Networks Inc**, co-owned by **Kevin Lindsay** and **Karen Smecher**:
+
+- **Kevin Lindsay** – Principal Engineer and original author of the codebase.
+- **Karen Smecher** – Manages social presence, community building, and contributes to strategic direction.
+
+For questions or contributions, please open an issue or submit a pull request.
 
 ---
 
