@@ -181,15 +181,15 @@ The vector database is used to store semantic embeddings for long-term memory re
   - Chain of Thought (CoT), Self-Consistency, Tree of Thought (ToT), ReWOO, ReACT, DERA, etc.  
 * **Memory System Improvements**  
   - **Short-term**: Currently the last 10 utterances.  
-  - **Long-term**: Use semantic and episodic context stored in a vector DB to refine retrieval.  
+  - **Long-term**: Currently genreates semantic and episodic topics from utterance hisotry and stored in a vector DB to refine retrieval.
 * **Multi-user System**  
-  - Shared documents or data between multiple users.  
-  - Possible SSO integration.  
+  - Share data between multiple users.  
+  - SSO integration.  
 * **Governance and Security**  
   - [Guardrails](https://github.com/guardrails-ai/guardrails)  
   - Encrypted PII data  
 * **External Database Support**  
-  - Local storage using SQLite & ChromaDB; potentially other backends in the future.
+  - Currently supoort local storage only using SQLite & ChromaDB
 
 ---
 
