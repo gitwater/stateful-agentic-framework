@@ -54,6 +54,15 @@ class Authentication:
         """
         Returns a persistent next client ID.
         """
-        # Assume SQLDatabase provides a SQLite-like connection.
-        new_id = self.sql.db_auth.get_client_id()
-        return new_id
+
+        # Use a local file to avoid reusing client ids when databases
+        # are reset or deleted.
+        next_client_id = 1
+        next_client_id_file = ".next_client_id"
+        if os.path.exists(next_client_id_file):
+            with open(next_client_id_file, "r") as file:
+                next_client_id = int(file.read())
+                next_client_id += 1
+        with open(next_client_id_file, "w") as file:
+            file.write(str(next_client_id))
+        return next_client_id

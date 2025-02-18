@@ -330,7 +330,7 @@ Instructions:
             self.process_user_input(user_input)
             update_hud = True
 
-        if self.session.conversation_started == False:
+        if self.session.conversation_started == False and self.session.disable_conversation_init == False:
             agent_response = self.interaction_get_starting_conversation()
         else:
             agent_response = self.agent.interactions(user_input)

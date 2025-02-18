@@ -58,31 +58,51 @@ def process_session(session_state):
                 session_state.agent.refresh()
         time.sleep(0.1)
 
+def get_session_state(create_if_missing=False, disable_conversation_init=False):
+    global persona_config_path, auth
+
+    session_state = None
+    client_id = session.get('client_id')
+    if client_id == None:
+        if create_if_missing == True:
+            client_id = auth.get_next_client_id()
+            session['client_id'] = client_id
+            logging.info(f"webapp: New client_id: {client_id}")
+        else:
+            return None
+
+
+    if client_id in session_states.keys():
+        session_state = session_states[client_id]
+        if session_state.client_id != client_id:
+            # Log the user out if the client_id is invalid.
+            logging.info(f"webapp: Session client_id doesn't match SessionState client_id, clearing session: {client_id} != {session_state.client_id}")
+            session.clear()
+            return None
+        # If username doesn't match the session state, clear the session
+        if session['user']['username'] != session_state.username:
+            logging.info(f"webapp: Session username doesn't match SessionState username, clearing session: {session['user']['username']} != {session_state.username}")
+            session.clear()
+            return None
+        # logging.info(f"webapp: Using existing SessionState: client_id = {client_id}, username = {session['user']['username']}")
+    elif create_if_missing == True:
+        session_state = SessionState(client_id, persona_config_path, session['user']['username'], disable_conversation_init)
+        session_states[client_id] = session_state
+        logging.info(f"webapp: Created new SessionState: client_id = {client_id}, username = {session['user']['username']}")
+        # Start the dedicated agent thread only for a new session.
+        t = threading.Thread(target=process_session, args=(session_state,), daemon=True)
+        t.start()
+
+    return session_state
+
 @app.route('/')
 def index():
     # If the user is not logged in, render the login/registration form.
     if 'user' not in session:
         return render_template('index_hud.html', logged_in=False)
 
-    global persona_config_path
-
-    # Use the existing client_id if available, otherwise generate a new one.
-    client_id = session.get('client_id')
-    if not client_id:
-        client_id = auth.get_next_client_id()
-        session['client_id'] = client_id
-
-    # Check if a SessionState already exists for this client_id.
-    if client_id in session_states.keys():
-        session_state = session_states[client_id]
-        session_state.command_queue.put("refresh")
-    else:
-        session_state = SessionState(client_id, persona_config_path, session['user']['username'])
-        session_states[client_id] = session_state
-
-        # Start the dedicated agent thread only for a new session.
-        t = threading.Thread(target=process_session, args=(session_state,), daemon=True)
-        t.start()
+    session_state = get_session_state(create_if_missing=True)
+    session_state.command_queue.put("refresh")
 
     # Get additional agent info from persona_config.
     persona = persona_config.config.get('persona', {})
@@ -137,10 +157,11 @@ def active_message():
     if 'user' not in session:
         return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
 
-    client_id = int(session.get('client_id', 0))
-    session_state = session_states.get(client_id)
+    session_state = get_session_state(True, True)
+
     if not session_state:
-        return jsonify([])
+        session.clear()
+        return redirect(url_for('login'))
     # Collect messages from the dedicated agent thread.
     user_messages = session_state.pop_user_messages()
     deliberation_messages = session_state.pop_agent_dialog_messages()
@@ -174,6 +195,12 @@ if __name__ == '__main__':
     persona_config_path = sys.argv[1]
     if not os.path.exists(persona_config_path):
         logging.info(f"Invalid config path: {persona_config_path}")
+        sys.exit(1)
+
+    # If the current working directory is not the root of the project,
+    # print an error message and exit.
+    if not os.path.exists('src/webapp.py'):
+        logging.info("Please run the script from the root directory of the project.")
         sys.exit(1)
 
     persona_config = AgenticFrameworkConfig(persona_config_path)

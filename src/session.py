@@ -79,9 +79,10 @@ class AgenticFrameworkConfig:
         return state_output_formats
 
 class SessionState:
-    def __init__(self, client_id, persona_config_path, username):
+    def __init__(self, client_id, persona_config_path, username, disable_conversation_init):
         self.client_id = client_id
         self.username = username
+        self.disable_conversation_init = disable_conversation_init
         self.user_input = None
         self.agent_msgs = []
         self.agent_dialog_msgs = []
