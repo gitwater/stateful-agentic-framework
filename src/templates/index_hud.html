@@ -16,10 +16,11 @@
     <!-- Markdown-it -->
     <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
     <!-- Highlight.js -->
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/monokai-sublime.min.css"
-    />
+    <link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/monokai-sublime.min.css" />
+    <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" />
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
     <style>
       /* Theme definitions for Dark and Light modes */
@@ -202,7 +203,7 @@
       /* Debug text now uses the main text colour */
       .debug-agent-message {
         margin-bottom: 8px;
-        color: var(--text-color);
+        color: #228824;
       }
       .raw-text {
         white-space: pre;
@@ -376,7 +377,7 @@
                   <div class="chat-window">
                     <h2 class="text-center mb-4">{{ agent_name }}</h2>
                     <div class="dialog-container">
-                      <button class="btn btn-secondary btn-sm copy-btn" title="Copy dialog">Copy</button>
+                      <button class="btn btn-secondary btn-sm copy-btn" title="Copy dialog"><i class="bi bi-clipboard"></i> Copy</button>
                       <div id="chat-history" class="chat-history rounded"></div>
                     </div>
                   </div>
@@ -414,7 +415,7 @@
                     </ul>
                     <!-- Single Copy Button for HUD/Debug area -->
                     <div style="position: relative;">
-                      <button id="copy-hud-btn" class="btn btn-secondary btn-sm copy-btn" title="Copy dialog">Copy</button>
+                      <button id="copy-hud-btn" class="btn btn-secondary btn-sm copy-btn" title="Copy dialog"><i class="bi bi-clipboard"></i> Copy</button>
                     </div>
                     <div class="tab-content">
                       <div
@@ -582,59 +583,117 @@
 
           // Copy button functionality for main chat window.
           $(document).on("click", ".copy-btn", function () {
-            // If this is not the HUD/Debug copy button, use sibling method.
-            if (!$(this).is("#copy-hud-btn")) {
-              var dialogContent = $(this).siblings(".chat-history").text();
-              navigator.clipboard.writeText(dialogContent).then(function () {
-                alert("Copied to clipboard!");
-              }).catch(function (err) {
-                console.error("Failed to copy: ", err);
-              });
+            var $btn = $(this);
+
+            // Define the HTML for the two states.
+            var copyHtml = '<i class="bi bi-clipboard"></i> Copy';
+            var checkHtml = '<i class="bi bi-check2-circle"></i> Copy';
+
+            // If this is not the HUD/Debug copy button, use the sibling method.
+            if (!$btn.is("#copy-hud-btn")) {
+              var dialogContent = $btn.siblings(".chat-history").text();
+              navigator.clipboard.writeText(dialogContent)
+                .then(function () {
+                  // Switch the icon to a checkmark icon.
+                  $btn.html(checkHtml);
+                  // After 3 seconds, revert back to the original copy icon.
+                  setTimeout(function () {
+                    $btn.html(copyHtml);
+                  }, 3000);
+                })
+                .catch(function (err) {
+                  console.error("Failed to copy: ", err);
+                });
             }
           });
 
           // Copy button for HUD/Debug area.
           $("#copy-hud-btn").on("click", function () {
-            var activePane = $(".tab-content .tab-pane.active");
-            var dialogContent = activePane.find(".chat-history").text();
-            navigator.clipboard.writeText(dialogContent).then(function () {
-              alert("Copied to clipboard!");
-            }).catch(function (err) {
-              console.error("Failed to copy: ", err);
-            });
+            var $btn = $(this);
+            var activePane = $(".chat-window-hud .tab-content .tab-pane.active");
+
+            // Define the HTML for the two states.
+            var copyHtml = '<i class="bi bi-clipboard"></i> Copy';
+            var checkHtml = '<i class="bi bi-check2-circle"></i> Copy';
+
+
+            if (activePane.attr("id") === "hud-display") {
+              // For the HUD pane, copy markdown from data attribute.
+              var rawMarkdown = $("#hud-content .message-content").attr("data-original-markdown");
+              if (rawMarkdown) {
+                navigator.clipboard.writeText(decodeURIComponent(rawMarkdown))
+                  .then(function () {
+                    $btn.html(checkHtml);
+                    setTimeout(function () {
+                      $btn.html(copyHtml);
+                    }, 3000);
+                  })
+                  .catch(function (err) {
+                    console.error("Failed to copy markdown: ", err);
+                  });
+              }
+            } else if (activePane.attr("id") === "debug-pane") {
+              // For the Debug pane, copy the raw text.
+              var rawText = $("#debug-history").text();
+              navigator.clipboard.writeText(rawText)
+                .then(function () {
+                  $btn.html(checkHtml);
+                  setTimeout(function () {
+                    $btn.html(copyHtml);
+                  }, 3000);
+                })
+                .catch(function (err) {
+                  console.error("Failed to copy raw text: ", err);
+                });
+            }
           });
+
         });
 
         function addChatMessage(sender, message, target) {
           let formattedMessage;
+          let chat_history = $(target);
+          let cssClass = sender + "-message";
+
           if (target === "#debug-history") {
-            // For debug pane, show raw (monospace) text.
+            // For the debug pane, show raw (monospace) text.
             formattedMessage =
               '<div class="raw-text">' + md.utils.escapeHtml(message) + "</div>";
+            chat_history.append(
+              '<div class="' + cssClass + '">' +
+                '<strong>' + sender.charAt(0).toUpperCase() + sender.slice(1) + ':</strong><br>' +
+                '<div class="message-content">' + formattedMessage + '</div>' +
+              '</div>'
+            );
           } else if (target === "#hud-content") {
-            // For HUD pane, clear previous content and render only the message.
+            // For the HUD pane, clear previous content and render only the current message.
             formattedMessage = md.render(message).trim();
-            $(target).empty().html(formattedMessage);
-            $(target).scrollTop($(target)[0].scrollHeight);
-            return; // Exit early.
+            chat_history.empty();
+            chat_history.append(
+              '<div class="' + cssClass + '">' +
+                // Here we include the raw markdown in a data attribute.
+                '<div class="message-content" data-original-markdown="' + encodeURIComponent(message) + '">' +
+                  formattedMessage +
+                '</div>' +
+              '</div>'
+            );
           } else {
             // For the main chat window, render markdown with sender info.
             formattedMessage = md.render(message).trim();
+            chat_history.append(
+              '<div class="' + cssClass + '">' +
+                '<strong>' + sender.charAt(0).toUpperCase() + sender.slice(1) + ':</strong><br>' +
+                '<div class="message-content">' + formattedMessage + '</div>' +
+              '</div>'
+            );
           }
-          let chat_history = $(target);
-          let cssClass = sender + "-message";
-          chat_history.append(
-            '<div class="' +
-              cssClass +
-              '"><strong>' +
-              sender.charAt(0).toUpperCase() +
-              sender.slice(1) +
-              ':</strong><br><div class="message-content">' +
-              formattedMessage +
-              "</div></div>"
-          );
+
           chat_history.scrollTop(chat_history[0].scrollHeight);
         }
+
+
+
+
 
         function obtainActiveMessage() {
           $.ajax({
