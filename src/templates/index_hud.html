@@ -22,54 +22,156 @@
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@500&display=swap");
+      /* Theme definitions for Dark and Light modes */
+      body.dark-theme {
+        --bg-color: #121212;
+        --text-color: #e0e0e0;
+        --navbar-bg: #4b4b4b;
+        --sidebar-bg: #3d3d3d;
+        --sidebar-item-bg: #235d97;
+        --sidebar-item-text: #bfbfbf;
+        --sidebar-active-item-bg: #c3ddf7;
+        --sidebar-active-item-text: #235d97;
+        --active-bg: #7b8def;
+        --chat-history-bg: #1f1f1f;
+        --login-bg: #1f1f1f;
+        --border-separator: #b8b8b8;
+        /* HUD/Debug Tab Variables for Dark Theme */
+        --hud-tab-bg: #333;
+        --hud-tab-text: #e0e0e0;
+        --hud-tab-border: #444;
+        --hud-tab-active-bg: #9f9f9f;
+        --hud-tab-active-text: #fff;
+      }
+      body.light-theme {
+        --bg-color: #f5f5f5;
+        --text-color: #212121;
+        --navbar-bg: #cccccc;
+        --sidebar-bg: #cccccc;
+        --sidebar-item-bg: #235d97;
+        --sidebar-item-text: #bfbfbf;
+        --sidebar-active-item-bg: #c3ddf7;
+        --sidebar-active-item-text: #235d97;
 
+        --sidebar-item-bg: #c3ddf7;
+        --sidebar-item-text: #235d97;
+        --sidebar-active-item-bg: #235d97;
+        --sidebar-active-item-text: #c3ddf7;
+
+        --active-bg: #236ebe;
+        --chat-history-bg: #ffffff;
+        --login-bg: #ffffff;
+        --border-separator: #1f1f1f;
+        /* HUD/Debug Tab Variables for Light Theme */
+        --hud-tab-bg: #f8f9fa;
+        --hud-tab-text: #212121;
+        --hud-tab-border: #ccc;
+        --hud-tab-active-bg: #c3ddf7;
+        --hud-tab-active-text: #212121;
+      }
       body {
         font-family: Arial, sans-serif;
         font-size: 1rem;
-        background-color: #212529;
-        color: #f8f9fa;
+        background-color: var(--bg-color);
+        color: var(--text-color);
       }
-      /* Flex container for both chat windows */
+      /* Overall container max width */
+      .container {
+        max-width: 1400px;
+      }
+      .main-container {
+        padding: 0px;
+      }
+      /* Top Navbar styling with visual separator */
+      .navbar {
+        background-color: var(--navbar-bg) !important;
+        margin-bottom: 0px;
+        border-bottom: 2px solid var(--border-separator);
+      }
+      /* Sidebar styling: fixed width of 250px */
+      .sidebar {
+        flex: 0 0 250px;
+        max-width: 250px;
+        background-color: var(--sidebar-bg);
+        padding-top: 30px;
+        padding-left: 0px;
+        padding-right: 0px;
+        border-right: 2px solid var(--border-separator);
+      }
+      /* Sidebar menu items using new configurable variables */
+      .sidebar .list-group-item {
+        background-color: var(--sidebar-item-bg);
+        color: var(--sidebar-item-text);
+        border: none;
+      }
+      .sidebar .list-group-item.active {
+        background-color: var(--sidebar-active-item-bg);
+        color: var(--sidebar-active-item-text);
+      }
+      /* Visual separator between adjacent sidebar items */
+      .sidebar .list-group-item + .list-group-item {
+        border-top: 1px solid var(--text-color);
+        border-bottom: 1px solid var(--text-color);
+      }
+      /* Chat container for both windows */
       #chat-container {
-        width: 80%;
-        max-width: 1200px;
-        margin: 2rem auto;
+        width: 100%;
+        margin: 0 auto;
         display: flex;
         gap: 1rem;
       }
-      /* Flex items: allow shrinking by setting min-width to 0 */
-      .chat-window {
-        flex: 1 1 0;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-      }
+      /* Flex items: main chat window and HUD/Debug window */
+      .chat-window,
       .chat-window-hud {
         flex: 1 1 0;
         min-width: 0;
         display: flex;
         flex-direction: column;
-        padding-top: 30px;
       }
-      /* Chat history areas share these properties */
+      .chat-window {
+        padding-top: 20px;
+      }
+      /* Add top padding for alignment */
+      .chat-window-hud {
+        padding-top: 40px;
+      }
+      /* Dialog container to wrap dialogs and allow the copy button positioning */
+      .dialog-container {
+        position: relative;
+      }
+      /* Copy button styled to be at top-right of dialog container */
+      .copy-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        z-index: 10;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+      }
+      /* Remove hover/focus shadow to avoid overlapping effects */
+      .copy-btn:hover,
+      .copy-btn:focus {
+        box-shadow: none;
+      }
+      /* Chat history/dialog boxes: now resizable */
       .chat-history {
         height: 600px;
+        min-height: 300px;
+        resize: vertical;
         width: 100%;
         box-sizing: border-box;
         border: 1px solid #ccc;
-        overflow-y: auto;
+        overflow: auto;
         padding: 10px;
-        background-color: #343a40;
-        border-radius: 0.5rem;
+        background-color: var(--chat-history-bg);
+        border-radius: 0.0rem;
+        margin-top: 20px;
       }
-      /* Main Chat Dialog: wrap text and hide horizontal scrollbar */
       #chat-history {
         overflow-x: hidden;
         white-space: normal;
         word-wrap: break-word;
       }
-      /* Debug Dialog: prevent wrapping and show horizontal scrollbar */
       #debug-history {
         overflow-x: auto;
         white-space: pre;
@@ -80,19 +182,10 @@
         width: 100%;
         box-sizing: border-box;
       }
-      p {
-        margin: 6px 0;
-      }
-      h1 {
+      h1,
+      h2 {
         font-family: "Quicksand", sans-serif;
-        font-size: 2.5rem;
-        color: #ffffff;
-      }
-      .message-sender {
-        font-weight: bold;
-      }
-      .message-content {
-        display: inline;
+        color: var(--text-color);
       }
       .user-message {
         margin-bottom: 8px;
@@ -104,184 +197,450 @@
       }
       .hud-message {
         margin-bottom: 8px;
-        color: #f8f9fa;
+        color: var(--text-color);
       }
+      /* Debug text now uses the main text colour */
       .debug-agent-message {
         margin-bottom: 8px;
-        color: #c0c0c0;
+        color: var(--text-color);
       }
-      .system-message {
-        text-align: center;
-        margin-bottom: 6px;
-        color: #94928e;
-      }
-      /* For debug text formatting */
       .raw-text {
         white-space: pre;
       }
+      /* Login form styles */
+      #login-container {
+        width: 300px;
+        margin: 100px auto;
+        padding: 20px;
+        background-color: var(--login-bg);
+        border-radius: 8px;
+      }
+      #login-container h2 {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      #login-container input {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      #login-container button {
+        width: 100%;
+        padding: 8px;
+        border-radius: 4px;
+        border: none;
+        background-color: var(--active-bg);
+        color: #fff;
+        font-weight: bold;
+      }
+      /* Agent Information View (Agent tab) dark/light config */
+      body.dark-theme #agentView .card,
+      body.light-theme #agentView .card {
+        background-color: var(--chat-history-bg);
+        color: var(--text-color);
+        border: 1px solid;
+        margin-top: 20px;
+      }
+      body.dark-theme #agentView .card {
+        border-color: #444;
+      }
+      body.light-theme #agentView .card {
+        border-color: #ccc;
+      }
+      body.dark-theme #agentView .card-header,
+      body.light-theme #agentView .card-header {
+        background-color: var(--navbar-bg);
+        color: var(--text-color);
+      }
+      /* User Profile Dropdown Styles for dark and light themes */
+      body.dark-theme .dropdown-menu,
+      body.light-theme .dropdown-menu {
+        background-color: var(--sidebar-bg);
+        color: var(--text-color);
+        border: 1px solid var(--navbar-bg);
+      }
+      body.dark-theme .dropdown-item,
+      body.light-theme .dropdown-item {
+        background-color: var(--sidebar-bg);
+        color: var(--text-color);
+      }
+      body.dark-theme .dropdown-item:hover,
+      body.dark-theme .dropdown-item:focus,
+      body.light-theme .dropdown-item:hover,
+      body.light-theme .dropdown-item:focus {
+        background-color: var(--active-bg);
+        color: var(--text-color);
+      }
+      body.dark-theme .btn-secondary.dropdown-toggle,
+      body.light-theme .btn-secondary.dropdown-toggle {
+        background-color: var(--navbar-bg);
+        color: var(--text-color);
+        border: 1px solid var(--active-bg);
+      }
+      /* HUD/Debug Tab Styles */
+      .nav-tabs .nav-link {
+        background-color: var(--hud-tab-bg);
+        color: var(--hud-tab-text);
+        border: 1px solid var(--hud-tab-border);
+        margin-right: 2px;
+      }
+      .nav-tabs .nav-link.active {
+        background-color: var(--hud-tab-active-bg);
+        color: var(--hud-tab-active-text);
+      }
     </style>
   </head>
-  <body>
-    <div id="chat-container">
-      <!-- Main Chat Window for agent/user dialog -->
-      <div class="chat-window">
-        <h1 class="text-center mb-4">{{ agent_name }} AI</h1>
-        <div id="chat-history" class="chat-history rounded"></div>
+  <!-- Set default theme class (JS will update this based on user preference) -->
+  <body class="dark-theme">
+    {% if not logged_in %}
+      <!-- Login / Registration Form -->
+      <div id="login-container">
+        <h2>Login</h2>
+        <form id="login-form">
+          <input type="text" id="username" name="username" placeholder="Username" required />
+          <input type="password" id="password" name="password" placeholder="Password" required />
+          <button type="submit">Login</button>
+          <button type="button" id="register-btn" class="mt-2 btn btn-secondary">Register</button>
+        </form>
+        <div id="login-error" style="color: red; text-align: center;"></div>
       </div>
-      <!-- Tab Container for HUD (Markdown) and Debug (Raw) dialogs -->
-      <div class="chat-window-hud">
-        <!-- Tab Navigation -->
-        <ul class="nav nav-tabs" id="docDebugTab" role="tablist">
-          <li class="nav-item" role="presentation">
+    {% else %}
+      <!-- Top Navbar with Agent Name, Username Dropdown and Theme Toggle -->
+      <nav class="navbar navbar-expand-lg">
+        <div class="container">
+          <!-- Replace the navbar brand text with the agent's name -->
+          <div>Stateful Agentic Framework</div>
+          <div class="dropdown ms-auto">
             <button
-              class="nav-link active"
-              id="hud-tab"
-              data-bs-toggle="tab"
-              data-bs-target="#hud-display"
+              class="btn btn-secondary dropdown-toggle"
               type="button"
-              role="tab"
-              aria-controls="hud-display"
-              aria-selected="true"
+              id="userDropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
             >
-              HUD
+              {{ username }}
             </button>
-          </li>
-          <li class="nav-item" role="presentation">
-            <button
-              class="nav-link"
-              id="debug-tab"
-              data-bs-toggle="tab"
-              data-bs-target="#debug-pane"
-              type="button"
-              role="tab"
-              aria-controls="debug-pane"
-              aria-selected="false"
-            >
-              Debug
-            </button>
-          </li>
-        </ul>
-        <!-- Tab Content -->
-        <!-- The outer container retains the id "hud-display" for Bootstrap, but the inner container is renamed -->
-        <div class="tab-content">
-          <!-- HUD Pane: Markdown rendering -->
-          <div
-            class="tab-pane fade show active"
-            id="hud-display"
-            role="tabpanel"
-            aria-labelledby="hud-tab"
-          >
-            <div id="hud-content" class="chat-history rounded"></div>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+              <li>
+                <a class="dropdown-item" href="#" id="theme-toggle">Switch to Light Mode</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="/logout">Logout</a>
+              </li>
+            </ul>
           </div>
-          <!-- Debug Pane: Raw monospace text -->
-          <div
-            class="tab-pane fade"
-            id="debug-pane"
-            role="tabpanel"
-            aria-labelledby="debug-tab"
-          >
-            <div id="debug-history" class="chat-history rounded"></div>
+        </div>
+      </nav>
+      <!-- Main container with Sidebar and Content -->
+      <div class="container main-container">
+        <div class="row">
+          <!-- Sidebar with fixed width -->
+          <div class="col-md-3 sidebar">
+            <div class="list-group" id="sidebar-tab" role="tablist">
+              <a
+                class="list-group-item list-group-item-action active"
+                id="list-dialog-list"
+                data-bs-toggle="list"
+                href="#dialogView"
+                role="tab"
+                aria-controls="dialogView"
+              >
+                Conversation
+              </a>
+              <a
+                class="list-group-item list-group-item-action"
+                id="list-agent-list"
+                data-bs-toggle="list"
+                href="#agentView"
+                role="tab"
+                aria-controls="agentView"
+              >
+                Agent Information
+              </a>
+            </div>
+          </div>
+          <!-- Main Content Area -->
+          <div class="col-md-9">
+            <div class="tab-content" id="sidebar-tabContent">
+              <!-- Dialog view: Chat interface -->
+              <div
+                class="tab-pane fade show active"
+                id="dialogView"
+                role="tabpanel"
+                aria-labelledby="list-dialog-list"
+              >
+                <div id="chat-container">
+                  <!-- Main Chat Window -->
+                  <div class="chat-window">
+                    <h2 class="text-center mb-4">{{ agent_name }}</h2>
+                    <div class="dialog-container">
+                      <button class="btn btn-secondary btn-sm copy-btn" title="Copy dialog">Copy</button>
+                      <div id="chat-history" class="chat-history rounded"></div>
+                    </div>
+                  </div>
+                  <!-- HUD/Debug Tab Container -->
+                  <div class="chat-window-hud">
+                    <ul class="nav nav-tabs" id="docDebugTab" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button
+                          class="nav-link active"
+                          id="hud-tab"
+                          data-bs-toggle="tab"
+                          data-bs-target="#hud-display"
+                          type="button"
+                          role="tab"
+                          aria-controls="hud-display"
+                          aria-selected="true"
+                        >
+                          HUD
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button
+                          class="nav-link"
+                          id="debug-tab"
+                          data-bs-toggle="tab"
+                          data-bs-target="#debug-pane"
+                          type="button"
+                          role="tab"
+                          aria-controls="debug-pane"
+                          aria-selected="false"
+                        >
+                          Debug
+                        </button>
+                      </li>
+                    </ul>
+                    <!-- Single Copy Button for HUD/Debug area -->
+                    <div style="position: relative;">
+                      <button id="copy-hud-btn" class="btn btn-secondary btn-sm copy-btn" title="Copy dialog">Copy</button>
+                    </div>
+                    <div class="tab-content">
+                      <div
+                        class="tab-pane fade show active"
+                        id="hud-display"
+                        role="tabpanel"
+                        aria-labelledby="hud-tab"
+                      >
+                        <div id="hud-content" class="chat-history rounded"></div>
+                      </div>
+                      <div
+                        class="tab-pane fade"
+                        id="debug-pane"
+                        role="tabpanel"
+                        aria-labelledby="debug-tab"
+                      >
+                        <div id="debug-history" class="chat-history rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- User Input -->
+                <div class="input-group mt-3" style="width: 100%;">
+                  <textarea
+                    id="user-input"
+                    class="form-control"
+                    placeholder="Type your message..."
+                    rows="3"
+                  ></textarea>
+                  <div class="send-btn-container">
+                    <button id="send-btn" class="btn btn-success btn-sm">Send</button>
+                  </div>
+                </div>
+              </div>
+              <!-- Agent view: Agent information -->
+              <div
+                class="tab-pane fade"
+                id="agentView"
+                role="tabpanel"
+                aria-labelledby="list-agent-list"
+              >
+                <div class="card">
+                  <div class="card-header">
+                    <h2>{{ agent_name }} Information</h2>
+                  </div>
+                  <div class="card-body">
+                    <p>
+                      <strong>Purpose:</strong>
+                      {{ agent_purpose or "Not specified" }}
+                    </p>
+                    <p><strong>Description:</strong></p>
+                    <p>
+                      {{ agent_description or "No description provided." }}
+                    </p>
+                    <p>
+                      <strong>Additional Info:</strong>
+                    </p>
+                    <p>
+                      {{ agent_additional or "No additional info." }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    <!-- User Input -->
-    <div class="input-group mt-3" style="width: 80%; margin: 0 auto;">
-      <textarea
-        id="user-input"
-        class="form-control"
-        placeholder="Type your message..."
-        rows="3"
-      ></textarea>
-      <div class="send-btn-container">
-        <button id="send-btn" class="btn btn-success btn-sm">Send</button>
-      </div>
-    </div>
+    {% endif %}
+
     <script>
-      let requestInProgress = false;
-      const md = window.markdownit({
-        highlight: function (str, lang) {
-          if (lang && hljs.getLanguage(lang)) {
-            try {
-              return hljs.highlight(str, { language: lang }).value;
-            } catch (__) {}
-          }
-          return md.utils.escapeHtml(str);
-        },
-      });
-
-      $(document).ready(function () {
-        // Poll for new agent messages every 2 seconds.
-        setInterval(obtainActiveMessage, 2000);
-
-        $("#send-btn").on("click", function () {
-          let user_input = $("#user-input").val();
-          if (user_input.trim() !== "") {
-            // Clear the input box.
-            $("#user-input").val("");
-            // Immediately add the user's message to the main chat window.
-            addChatMessage("user", user_input, "#chat-history");
-            // Enqueue the user input on the backend.
-            $.post(
-              "/chat",
-              { user_input: user_input },
-              function (data) {
-                // The backend now just returns a status,
-                // so we log the response rather than processing messages.
-                console.log("Input queued:", data);
-              },
-              "json"
-            );
-          }
-        });
-
-        // If user presses Enter without Shift, send the message.
-        $("#user-input").on("keypress", function (e) {
-          if (e.which === 13 && !e.shiftKey) {
+      {% if not logged_in %}
+        // Handle login and registration.
+        $(document).ready(function(){
+          $("#login-form").on("submit", function(e){
             e.preventDefault();
-            $("#send-btn").click();
-          }
+            let username = $("#username").val();
+            let password = $("#password").val();
+            $.post("/login", { username: username, password: password }, function(data){
+              if(data.status === "success"){
+                location.reload();
+              }
+            }).fail(function(xhr){
+              $("#login-error").text(xhr.responseJSON.message || "Login failed");
+            });
+          });
+
+          $("#register-btn").on("click", function(){
+            let username = $("#username").val();
+            let password = $("#password").val();
+            $.post("/register", { username: username, password: password }, function(data){
+              if(data.status === "success"){
+                $("#login-error").text("Registration successful. Please log in.");
+              }
+            }).fail(function(xhr){
+              $("#login-error").text(xhr.responseJSON.message || "Registration failed");
+            });
+          });
         });
-      });
+      {% else %}
+        // Chat interface and theme toggle JavaScript.
+        const md = window.markdownit({
+          highlight: function (str, lang) {
+            if (lang && hljs.getLanguage(lang)) {
+              try {
+                return hljs.highlight(str, { language: lang }).value;
+              } catch (__) {}
+            }
+            return md.utils.escapeHtml(str);
+          },
+        });
 
-      function addChatMessage(sender, message, target) {
-        let formattedMessage;
-        if (target === "#debug-history") {
-          // For the debug pane, display raw (monospace) text.
-          formattedMessage =
-            '<div class="raw-text">' + md.utils.escapeHtml(message) + "</div>";
-        } else if (target === "#hud-content") {
-          // For the HUD pane, clear previous content and render only the message.
-          formattedMessage = md.render(message).trim();
-          $(target).empty().html(formattedMessage);
-          $(target).scrollTop($(target)[0].scrollHeight);
-          return; // Do not add extra markup.
-        } else {
-          // For the main chat window, render markdown with sender info.
-          formattedMessage = md.render(message).trim();
+        $(document).ready(function () {
+          // Initialize theme based on saved preference (default to dark)
+          var storedTheme = localStorage.getItem("theme") || "dark";
+          $("body").removeClass("dark-theme light-theme").addClass(storedTheme + "-theme");
+          if (storedTheme === "dark") {
+            $("#theme-toggle").text("Switch to Light Mode");
+          } else {
+            $("#theme-toggle").text("Switch to Dark Mode");
+          }
+
+          // Theme toggle handler
+          $("#theme-toggle").on("click", function (e) {
+            e.preventDefault();
+            if ($("body").hasClass("dark-theme")) {
+              $("body").removeClass("dark-theme").addClass("light-theme");
+              $("#theme-toggle").text("Switch to Dark Mode");
+              localStorage.setItem("theme", "light");
+            } else {
+              $("body").removeClass("light-theme").addClass("dark-theme");
+              $("#theme-toggle").text("Switch to Light Mode");
+              localStorage.setItem("theme", "dark");
+            }
+          });
+
+          // Poll for new agent messages every 2 seconds.
+          setInterval(obtainActiveMessage, 2000);
+
+          $("#send-btn").on("click", function () {
+            let user_input = $("#user-input").val();
+            if (user_input.trim() !== "") {
+              // Clear the input box.
+              $("#user-input").val("");
+              // Add user's message to the main chat window.
+              addChatMessage("user", user_input, "#chat-history");
+              // Send the message to the backend.
+              $.post(
+                "/chat",
+                { user_input: user_input },
+                function (data) {
+                  console.log("Input queued:", data);
+                },
+                "json"
+              );
+            }
+          });
+
+          // Send message on Enter (without Shift).
+          $("#user-input").on("keypress", function (e) {
+            if (e.which === 13 && !e.shiftKey) {
+              e.preventDefault();
+              $("#send-btn").click();
+            }
+          });
+
+          // Copy button functionality for main chat window.
+          $(document).on("click", ".copy-btn", function () {
+            // If this is not the HUD/Debug copy button, use sibling method.
+            if (!$(this).is("#copy-hud-btn")) {
+              var dialogContent = $(this).siblings(".chat-history").text();
+              navigator.clipboard.writeText(dialogContent).then(function () {
+                alert("Copied to clipboard!");
+              }).catch(function (err) {
+                console.error("Failed to copy: ", err);
+              });
+            }
+          });
+
+          // Copy button for HUD/Debug area.
+          $("#copy-hud-btn").on("click", function () {
+            var activePane = $(".tab-content .tab-pane.active");
+            var dialogContent = activePane.find(".chat-history").text();
+            navigator.clipboard.writeText(dialogContent).then(function () {
+              alert("Copied to clipboard!");
+            }).catch(function (err) {
+              console.error("Failed to copy: ", err);
+            });
+          });
+        });
+
+        function addChatMessage(sender, message, target) {
+          let formattedMessage;
+          if (target === "#debug-history") {
+            // For debug pane, show raw (monospace) text.
+            formattedMessage =
+              '<div class="raw-text">' + md.utils.escapeHtml(message) + "</div>";
+          } else if (target === "#hud-content") {
+            // For HUD pane, clear previous content and render only the message.
+            formattedMessage = md.render(message).trim();
+            $(target).empty().html(formattedMessage);
+            $(target).scrollTop($(target)[0].scrollHeight);
+            return; // Exit early.
+          } else {
+            // For the main chat window, render markdown with sender info.
+            formattedMessage = md.render(message).trim();
+          }
+          let chat_history = $(target);
+          let cssClass = sender + "-message";
+          chat_history.append(
+            '<div class="' +
+              cssClass +
+              '"><strong>' +
+              sender.charAt(0).toUpperCase() +
+              sender.slice(1) +
+              ':</strong><br><div class="message-content">' +
+              formattedMessage +
+              "</div></div>"
+          );
+          chat_history.scrollTop(chat_history[0].scrollHeight);
         }
-        let chat_history = $(target);
-        let cssClass = sender + "-message";
-        chat_history.append(
-          '<div class="' +
-            cssClass +
-            '"><strong>' +
-            sender.charAt(0).toUpperCase() +
-            sender.slice(1) +
-            ':</strong><br><div class="message-content">' +
-            formattedMessage +
-            "</div></div>"
-        );
-        chat_history.scrollTop(chat_history[0].scrollHeight);
-      }
 
-      function obtainActiveMessage() {
-        if (!requestInProgress) {
-          requestInProgress = true;
+        function obtainActiveMessage() {
           $.ajax({
             url: "/active-message",
             dataType: "json",
-            cache: false, // disable caching
+            cache: false,
             success: function (data) {
               var msg_count = data.length;
               if (msg_count > 0) {
@@ -301,11 +660,11 @@
               }
             },
             complete: function () {
-              requestInProgress = false;
+              // No request in progress flag is needed.
             },
           });
         }
-      }
+      {% endif %}
     </script>
   </body>
 </html>

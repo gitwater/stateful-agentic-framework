@@ -4,6 +4,7 @@ from datetime import datetime
 from sql_database.ltm import SQLDatabaseLTM
 from sql_database.stm import SQLDatabaseSTM
 from sql_database.states import SQLDatabaseStates
+from sql_database.auth import SQLDatabaseAuth
 import os
 
 class SQLDatabase:
@@ -20,15 +21,15 @@ class SQLDatabase:
         self.db_ltm = SQLDatabaseLTM(self.conn)
         self.db_stm = SQLDatabaseSTM(self.conn)
         self.db_states = SQLDatabaseStates(self.conn)
+        self.db_auth = SQLDatabaseAuth(self.conn)
         self.db_ltm.create_tables()
         self.db_stm.create_tables()
         self.db_states.create_tables()
+        self.db_auth.create_tables()
         self.create_tables()
 
     def create_tables(self):
         cursor = self.conn.cursor()
-
-
 
         self.conn.commit()
 

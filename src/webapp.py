@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_session import Session
 import sys, os
 import threading
@@ -6,10 +6,9 @@ import queue
 import logging
 import time
 from session import SessionState, AgenticFrameworkConfig
+from auth import Authentication
 
-# from socratic_agent import *
-# from persona_agent import PesonaAgent
-
+# Set up logging.
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 logging.basicConfig(
@@ -23,91 +22,118 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.secret_key = 'socraticalpaca'
 Session(app)
 
+# Global variables for session management.
 last_client_id = 0
 session_states = {}  # Maps client_id to SessionState
 chat_count = 0
 
 persona_config_path = None
 persona_config = None
+auth = None
 
 def process_session(session_state):
     """
-    Long running thread for a given session. It watches the session's user_input_queue.
-    When new input is enqueued (even if the agent is busy processing a previous input),
-    it will process them sequentially.
+    Worker thread for each client session.
     """
     logging.info("Before init session")
     session_state.init_session()
     logging.info("Entering Agent main loop")
     while True:
-        # This call blocks until new user input is available.
-        # Non blocking queue get
         try:
             user_input = session_state.user_input_queue.get(block=False)
         except queue.Empty:
             user_input = None
-        # Process the input (this call may take a while).
         success = session_state.agent.interactions(user_input)
         if not success:
-            # You can add error handling here if needed.
             app.logger.error(f"Error processing input for client {session_state.client_id}")
-        # After processing, the agent is assumed to have pushed messages onto its internal queues.
-        # (No need to signal the HTTP thread; /active-message will poll for new messages.)
-        # Mark the task as done (if you are using task_done() in your queue logic).
         if user_input is not None:
             session_state.user_input_queue.task_done()
-        # Sleep for a slit second to avoid busy waiting.
-        # (You can adjust this value based on your needs.)
         time.sleep(0.1)
 
 @app.route('/')
 def index():
-    global last_client_id
-    global persona_config_path
-    global persona_config
+    # If the user is not logged in, render the login/registration form.
+    if 'user' not in session:
+        return render_template('index_hud.html', logged_in=False)
 
-    if persona_config is None:
-        persona_config = AgenticFrameworkConfig(persona_config_path)
-
+    # Otherwise, set up the chat session.
+    global last_client_id, persona_config_path
     last_client_id += 1
     session['client_id'] = last_client_id
-
-    # Create a new session state for this client.
-    # Note: We now assume that the SessionState (and its agent) will be used exclusively
-    # in the dedicated thread created below.
     session_state = SessionState(last_client_id, persona_config_path)
-    # Create a thread-safe queue for user input.
     session_states[last_client_id] = session_state
 
-    # Start a dedicated worker thread for this session.
+    # Start the dedicated agent thread.
     t = threading.Thread(target=process_session, args=(session_state,), daemon=True)
     t.start()
 
-    # Render the index page. (Uncomment the template you wish to use.)
-    return render_template('index_hud.html', agent_name=persona_config.config['persona']['name'])
+    # Get additional agent info from persona_config.
+    persona = persona_config.config.get('persona', {})
+    agent_purpose = persona.get('purpose', '')
+    agent_description = persona.get('description', '')
+    agent_additional = persona.get('additional', '')
+
+    return render_template('index_hud.html',
+                           logged_in=True,
+                           agent_name=persona.get('name', 'Agent'),
+                           username=session['user']['username'],
+                           agent_purpose=agent_purpose,
+                           agent_description=agent_description,
+                           agent_additional=agent_additional)
+
+@app.route('/login', methods=['POST'])
+def login():
+    global auth
+    username = request.form.get('username')
+    password = request.form.get('password')
+    token = auth.login(username, password)
+    if token:
+        # Store the user and token in session.
+        session['user'] = {'username': username, 'token': token}
+        return jsonify({'status': 'success', 'token': token})
+    else:
+        return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
+
+@app.route('/register', methods=['POST'])
+def register():
+    global auth
+    username = request.form.get('username')
+    password = request.form.get('password')
+    success = auth.register(username, password)
+    if success:
+        return jsonify({'status': 'success'})
+    else:
+        return jsonify({'status': 'error', 'message': 'User already exists'}), 400
+
+# Logout handler.
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
 
 @app.route('/active-message')
 def active_message():
-    client_id = int(session['client_id'])
-    session_state = session_states.get(client_id)
+    if 'user' not in session:
+        return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
 
+    client_id = int(session.get('client_id', 0))
+    session_state = session_states.get(client_id)
     if not session_state:
         return jsonify([])
-
-    # Instead of calling interactions() here, we simply return any messages that the
-    # dedicated thread has pushed into the agent's message queues.
+    # Collect messages from the dedicated agent thread.
     user_messages = session_state.pop_user_messages()
     deliberation_messages = session_state.pop_agent_dialog_messages()
     user_messages.extend(deliberation_messages)
-
     return jsonify(user_messages)
 
 @app.route('/chat', methods=['POST'])
 def chat():
     global chat_count
-    client_id = int(session['client_id'])
-    session_state = session_states.get(client_id)
+    if 'user' not in session:
+        return jsonify({'status': 'error', 'message': 'Not authenticated'}), 401
 
+    client_id = int(session.get('client_id', 0))
+    session_state = session_states.get(client_id)
     if not session_state:
         return jsonify({'status': 'error', 'message': 'Invalid session.'}), 400
 
@@ -115,16 +141,12 @@ def chat():
     chat_count += 1
     app.logger.info(f"Client {client_id} input #{chat_count}: {user_input}")
 
-    # Instead of processing the input immediately, we enqueue it.
+    # Enqueue the input to be processed by the dedicated thread.
     session_state.user_input_queue.put(user_input)
-
-    # Return immediately; the dedicated thread will process the input.
     return jsonify({'status': 'queued'})
 
 if __name__ == '__main__':
     os.environ["CHROMA_DISABLE_TELEMETRY"] = "true"
-
-    # Usage check for the persona config path.
     if len(sys.argv) < 2:
         logging.info("Usage: python src/webapp.py <config_path>")
         sys.exit(1)
@@ -133,7 +155,7 @@ if __name__ == '__main__':
         logging.info(f"Invalid config path: {persona_config_path}")
         sys.exit(1)
 
-    # Start the Flask app.
-    # Note: threaded=False ensures that our dedicated threads (for each session) are used
-    # for the agent interactions while Flask handles HTTP requests in its own way.
+    persona_config = AgenticFrameworkConfig(persona_config_path)
+    auth = Authentication(persona_config.config)
+
     app.run(port=8000, debug=False, threaded=False)

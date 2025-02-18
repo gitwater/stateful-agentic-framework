@@ -95,9 +95,9 @@ Copy and paste the prompt below along with the `config/template_config.yaml` fil
 ---------------------------------------------------------------------------------
 You are a <role> with the purpose of <purpose>.
 
-Please first investigate and create a plan for generating a real world Stateful Agentic Framework configuration 
-using the role that you have declared. Generate as many states as required that a professional in this space 
-would apply to a real situation. Also generate the HUD and any other parts of the configuration to ensure that 
+Please first investigate and create a plan for generating a real world Stateful Agentic Framework configuration
+using the role that you have declared. Generate as many states as required that a professional in this space
+would apply to a real situation. Also generate the HUD and any other parts of the configuration to ensure that
 this agent config includes all relevant information and design to achieve your purpose.
 Use state names that reflect their purpose.
 
@@ -113,29 +113,29 @@ When you submit this prompt, the LLM will provide a YAML configuration that you 
 
 After generating your initial YAML configuration using an LLM, it’s critical to **validate**, **refine**, and **fine-tune** it to ensure your agent behaves as intended. Here’s what we recommend:
 
-1. **Review the Generated Configuration**  
-   - Check that each state aligns with your conversation flow, goals, and overall purpose.  
+1. **Review the Generated Configuration**
+   - Check that each state aligns with your conversation flow, goals, and overall purpose.
    - Ensure the persona and data structures meet your use case requirements.
    - Spend time researching the role, methodologies, and domain-specific constraints with an LLM to generate comprehensive, detailed content for your agent. This ensures each state and goal is deeply informed by best practices, relevant regulations, real-world scenarios, and user needs—ultimately leading to more accurate and engaging interactions.
-  
-2. **Update or Remove Unnecessary Data**  
-   - The LLM may provide extra states or data fields. Feel free to delete or rename them as needed.  
+
+2. **Update or Remove Unnecessary Data**
+   - The LLM may provide extra states or data fields. Feel free to delete or rename them as needed.
    - Simplify or elaborate on any text values (purpose, goals, data descriptions, etc.) to better fit your agent’s role.
 
-3. **Iterate & Test**  
-   - Run the framework with your updated configuration and observe its output.  
-   - Experiment with different phrasing and formatting to see how the agent’s responses change.  
+3. **Iterate & Test**
+   - Run the framework with your updated configuration and observe its output.
+   - Experiment with different phrasing and formatting to see how the agent’s responses change.
    - We highly recommend versioning your configuration (e.g., via Git) so you can easily revert to a working setup if necessary.
-   - **Important:** If you modify states and their data structures, the database might go out of sync. Due to the experimental nature of this framework, the only workaround is to remove the databases and start over. Refer to the [Databases](#databases) section for details on where your data is stored.     
+   - **Important:** If you modify states and their data structures, the database might go out of sync. Due to the experimental nature of this framework, the only workaround is to remove the databases and start over. Refer to the [Databases](#databases) section for details on where your data is stored.
 
-4. **Continue Fine-Tuning**  
-   - As you refine the YAML, adjusting text values in the persona, states, goals, and data structures can significantly alter the agent’s behavior.  
-   - Keep iterating until you find a setup that aligns perfectly with your objectives.  
+4. **Continue Fine-Tuning**
+   - As you refine the YAML, adjusting text values in the persona, states, goals, and data structures can significantly alter the agent’s behavior.
+   - Keep iterating until you find a setup that aligns perfectly with your objectives.
    - For large or collaborative projects, consider storing your configuration in a shared repository so the entire team can review and propose improvements.
 
-5. **Share Feedback & Contribute**  
-   - If you find new patterns or have ideas to improve the core architecture, we’d love your input!  
-   - Feel free to open an **issue** or submit a **pull request** to this repository with your suggestions, bug reports, or enhancements.  
+5. **Share Feedback & Contribute**
+   - If you find new patterns or have ideas to improve the core architecture, we’d love your input!
+   - Feel free to open an **issue** or submit a **pull request** to this repository with your suggestions, bug reports, or enhancements.
    - Your contributions help the community evolve the framework and ensure that future releases stay robust and feature-rich.
 
 By taking the time to validate, refine, and fine-tune your configuration, you’ll craft an agent that is both **highly functional** and **tailored** to your unique needs—all while helping to improve the project for everyone.
@@ -153,10 +153,8 @@ By taking the time to validate, refine, and fine-tune your configuration, you’
    ```bash
    python src/main.py <path to your config file>
    ```
-4. **Access in your browser**:  
+4. **Access in your browser**:
    Go to [http://127.0.0.1:8000/](http://127.0.0.1:8000/) to interact with your agent.
-
-> **Important**: If you quit the server, make sure to close your browser tab before starting the server again to avoid caching issues.
 
 ---
 
@@ -173,22 +171,22 @@ The vector database is used to store semantic embeddings for long-term memory re
 
 ## TODO / Roadmap
 
-* **Fix Socratic Agent** – Refine multi-agent dialogue system.  
-* **Add Tooling for Agents**  
-  - Web search (Google, Wolfram Alpha, etc.)  
-  - Python scripting to validate technical answers  
-* **Explore Alternative Reasoning Agent Types**  
-  - Chain of Thought (CoT), Self-Consistency, Tree of Thought (ToT), ReWOO, ReACT, DERA, etc.  
-* **Memory System Improvements**  
-  - **Short-term**: Currently the last 10 utterances.  
+* **Fix Socratic Agent** – Refine multi-agent dialogue system.
+* **Add Tooling for Agents**
+  - Web search (Google, Wolfram Alpha, etc.)
+  - Python scripting to validate technical answers
+* **Explore Alternative Reasoning Agent Types**
+  - Chain of Thought (CoT), Self-Consistency, Tree of Thought (ToT), ReWOO, ReACT, DERA, etc.
+* **Memory System Improvements**
+  - **Short-term**: Currently the last 10 utterances.
   - **Long-term**: Currently genreates semantic and episodic topics from utterance hisotry and stored in a vector DB to refine retrieval.
-* **Multi-user System**  
-  - Share data between multiple users.  
-  - SSO integration.  
-* **Governance and Security**  
-  - [Guardrails](https://github.com/guardrails-ai/guardrails)  
-  - Encrypted PII data  
-* **External Database Support**  
+* **Multi-user System**
+  - Share data between multiple users.
+  - SSO integration.
+* **Governance and Security**
+  - [Guardrails](https://github.com/guardrails-ai/guardrails)
+  - Encrypted PII data
+* **External Database Support**
   - Currently supoort local storage only using SQLite & ChromaDB
 
 ---
@@ -228,5 +226,5 @@ For questions or contributions, please open an issue or submit a pull request.
 
 ---
 
-**Happy Building!**  
+**Happy Building!**
 _We look forward to seeing the conversational agents you create with the Stateful Agentic Framework._
