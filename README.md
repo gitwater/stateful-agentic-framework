@@ -210,8 +210,7 @@ This project is released under the [MIT License](LICENSE). Feel free to modify a
 
 ## Acknowledgments
 
-- Inspired by leading conversational frameworks and modern agentic architectures.
-- Big thanks to the open-source community for libraries like [OpenAI](https://github.com/openai), [ChromaDB](https://github.com/chroma-core), and more.
+- [Richard Aragon](https://www.youtube.com/@richardaragon8471) for his educational and informative content.
 
 ---
 
