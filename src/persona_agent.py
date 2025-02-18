@@ -13,7 +13,7 @@ class PersonaAgent:
     def __init__(self, session, persona_config):
         self.session = session
         self.persona_config = persona_config
-        self.sql_db = SQLDatabase(persona_config.config)
+        self.sql_db = SQLDatabase(self.session.username, persona_config.config['persona']['name'])
         self.state_manager = PersonaStateManager(persona_config.config, self.sql_db)
 
         if self.persona_config.config['framework_settings']['reasoning_agent'] == "socratic":
@@ -69,18 +69,6 @@ class PersonaAgent:
                     data_obj_str += f"{indent}{key}: {value}\n"
         return data_obj_str
 
-
-    def get_conversation_history(self):
-        conversation_history_list = self.db.get_conversation_history()
-        conversation_history = "START Conversation History\n"
-        for message in conversation_history_list:
-            conversation_history += f"{message['created_at']}: {message['role']}: {message['content']}\n\n"
-        conversation_history += "END Conversation History\n"
-        message = {
-            "role": "assistant",
-            "content": conversation_history
-        }
-        return message
 
     # Generates a string where each new line has a prefix of indent
     def pstring(self, key, value, indent=""):
@@ -319,6 +307,20 @@ Instructions:
         self.session.send_hud_message(response['hud_content'])
 
         return True
+
+    # Refresh the conversation by sending the HUD content to the user
+    # and the last 10 utterances in the conversation history
+    def refresh(self):
+        self.interaction_update_hud_content()
+        conversation_history = self.sql_db.db_stm.retreive_utterances()
+        # iterate in reverse order to get the last 10 utterances
+        conversation_history = conversation_history[::-1]
+        for message in conversation_history:
+            if message['speaker'] == 'user':
+                self.session.send_as_user_message(message['utterance'])
+            else:
+                self.session.send_user_message(message['utterance'])
+
 
     # Processes the interactions with the User
     def interactions(self, user_input=None):

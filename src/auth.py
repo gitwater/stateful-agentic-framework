@@ -11,7 +11,7 @@ JWT_EXP_DELTA_SECONDS = 3600  # Token validity: 1 hour
 class Authentication:
     def __init__(self, persona_config):
         # Initialize the authentication database helper.
-        self.sql = SQLDatabase(persona_config)
+        self.sql = SQLDatabase("shared", "auth")
 
     def register(self, username, password):
         """
@@ -49,3 +49,11 @@ class Authentication:
             return payload
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return None
+
+    def get_next_client_id(self):
+        """
+        Returns a persistent next client ID.
+        """
+        # Assume SQLDatabase provides a SQLite-like connection.
+        new_id = self.sql.db_auth.get_client_id()
+        return new_id

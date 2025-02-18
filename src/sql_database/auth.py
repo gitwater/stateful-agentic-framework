@@ -17,6 +17,13 @@ class SQLDatabaseAuth:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS client_id (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id INTEGER NOT NULL
+            )
+        ''')
         self.conn.commit()
 
     def _hash_password(self, password, salt=None):
@@ -72,3 +79,19 @@ class SQLDatabaseAuth:
             if computed_hash == stored_hash:
                 return user
         return None
+
+    def get_client_id(self):
+        cursor = self.conn.execute(
+            "UPDATE client_id SET client_id = client_id + 1 WHERE id = 1 RETURNING client_id"
+        )
+        row = cursor.fetchone()
+        if row is None:
+            # Insert row
+            cursor.execute(
+                "INSERT INTO client_id (id, client_id) VALUES (1, 1)"
+            )
+            return 1
+
+        self.conn.commit()
+        return row[0]
+

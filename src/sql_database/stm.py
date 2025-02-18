@@ -26,6 +26,17 @@ class SQLDatabaseSTM:
     # Utterances
     def store_utterance(self, speaker, utterance):
         cursor = self.conn.cursor()
+        # Get the last utterance
+        cursor.execute('''
+            SELECT * FROM utterances
+            ORDER BY created_at DESC
+            LIMIT 1
+        ''')
+        last_utterance = cursor.fetchone()
+        # If the last utterance is the same as the current utterance, don't store it
+        if last_utterance is not None and last_utterance[1] == speaker and last_utterance[2] == utterance:
+            return
+
         cursor.execute('''
             INSERT INTO utterances (speaker, utterance)
             VALUES (?, ?)

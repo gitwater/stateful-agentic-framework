@@ -48,6 +48,14 @@ def process_session(session_state):
             app.logger.error(f"Error processing input for client {session_state.client_id}")
         if user_input is not None:
             session_state.user_input_queue.task_done()
+
+        try:
+            command = session_state.command_queue.get(block=False)
+        except queue.Empty:
+            command = None
+        if command != None:
+            if command == "refresh":
+                session_state.agent.refresh()
         time.sleep(0.1)
 
 @app.route('/')
@@ -56,16 +64,25 @@ def index():
     if 'user' not in session:
         return render_template('index_hud.html', logged_in=False)
 
-    # Otherwise, set up the chat session.
-    global last_client_id, persona_config_path
-    last_client_id += 1
-    session['client_id'] = last_client_id
-    session_state = SessionState(last_client_id, persona_config_path)
-    session_states[last_client_id] = session_state
+    global persona_config_path
 
-    # Start the dedicated agent thread.
-    t = threading.Thread(target=process_session, args=(session_state,), daemon=True)
-    t.start()
+    # Use the existing client_id if available, otherwise generate a new one.
+    client_id = session.get('client_id')
+    if not client_id:
+        client_id = auth.get_next_client_id()
+        session['client_id'] = client_id
+
+    # Check if a SessionState already exists for this client_id.
+    if client_id in session_states.keys():
+        session_state = session_states[client_id]
+        session_state.command_queue.put("refresh")
+    else:
+        session_state = SessionState(client_id, persona_config_path, session['user']['username'])
+        session_states[client_id] = session_state
+
+        # Start the dedicated agent thread only for a new session.
+        t = threading.Thread(target=process_session, args=(session_state,), daemon=True)
+        t.start()
 
     # Get additional agent info from persona_config.
     persona = persona_config.config.get('persona', {})
@@ -73,19 +90,23 @@ def index():
     agent_description = persona.get('description', '')
     agent_additional = persona.get('additional', '')
 
-    return render_template('index_hud.html',
-                           logged_in=True,
-                           agent_name=persona.get('name', 'Agent'),
-                           username=session['user']['username'],
-                           agent_purpose=agent_purpose,
-                           agent_description=agent_description,
-                           agent_additional=agent_additional)
+    return render_template(
+        'index_hud.html',
+        logged_in=True,
+        agent_name=persona.get('name', 'Agent'),
+        username=session['user']['username'],
+        agent_purpose=agent_purpose,
+        agent_description=agent_description,
+        agent_additional=agent_additional
+    )
+
 
 @app.route('/login', methods=['POST'])
 def login():
     global auth
     username = request.form.get('username')
     password = request.form.get('password')
+
     token = auth.login(username, password)
     if token:
         # Store the user and token in session.

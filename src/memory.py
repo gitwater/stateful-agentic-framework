@@ -5,6 +5,7 @@ import hashlib
 import chromadb
 from pprint import pprint
 import logging
+import utils
 
 
 # Short buffer of the most recent conversational messages
@@ -32,10 +33,14 @@ class MemoryShortTerm:
 
 # Episodic and Semantic Memory
 class MemoryLongTerm:
-    def __init__(self, name, memory_system, sql_db):
+    def __init__(self, system_container, data_container, memory_system, sql_db):
         self.sql_db = sql_db
         self.memory_system = memory_system
-        self.vector_db_client = chromadb.PersistentClient(path=f"./db/vector/{name}.db", settings=chromadb.config.Settings(anonymized_telemetry=False))
+
+        system_container = utils.normalize_folder_name(system_container)
+        data_container = utils.normalize_folder_name(data_container)
+
+        self.vector_db_client = chromadb.PersistentClient(path=f"./db/{system_container}/{data_container}/vector.db", settings=chromadb.config.Settings(anonymized_telemetry=False))
         self.episodic_collection = self.vector_db_client.get_or_create_collection(
             "long_term_episodic_memory",
             metadata={
@@ -426,7 +431,7 @@ class AgentMemory:
         #self.semantic_memory = MemorySemanticRetrieval(persona_name)
         self.sql_db = agent.sql_db
         self.short_term_memory = MemoryShortTerm(self.sql_db)
-        self.long_term_memory = MemoryLongTerm(persona_name, self, self.sql_db)
+        self.long_term_memory = MemoryLongTerm(agent.session.username, persona_name, self, self.sql_db)
         #self.intuitive_memory = MemoryIntuition(persona_name, self.sql_db)
         #self.personality_memory = MemoryPersonality(self.sql_db)
 

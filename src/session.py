@@ -79,8 +79,9 @@ class AgenticFrameworkConfig:
         return state_output_formats
 
 class SessionState:
-    def __init__(self, client_id, persona_config_path):
+    def __init__(self, client_id, persona_config_path, username):
         self.client_id = client_id
+        self.username = username
         self.user_input = None
         self.agent_msgs = []
         self.agent_dialog_msgs = []
@@ -89,6 +90,7 @@ class SessionState:
         self.conversation_started = False
         self.agent_session = None
         self.user_input_queue = queue.Queue()
+        self.command_queue = queue.Queue()
         # Load a JSON file from the path provided
         self.persona_config = AgenticFrameworkConfig(persona_config_path)
 
@@ -105,6 +107,11 @@ class SessionState:
 
     def send_user_message(self, message):
         agent_msg = {'role': 'Agent', 'response': message}
+        self.agent_msgs.append(agent_msg)
+
+
+    def send_as_user_message(self, message):
+        agent_msg = {'role': 'User', 'response': message}
         self.agent_msgs.append(agent_msg)
 
     def pop_user_messages(self):
