@@ -1,0 +1,9 @@
+# SQLAlchemy ORM and Alembic migrations
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# ChromaDB for vector database
+chromadb>=0.4.18
+
+# PostgreSQL driver (for future use)
+psycopg2-binary>=2.9.9 

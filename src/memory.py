@@ -10,17 +10,19 @@ import utils
 
 # Short buffer of the most recent conversational messages
 class MemoryShortTerm:
-    def __init__(self, sql_db):
-        self.sql_db = sql_db
+    def __init__(self, db, user_id, agent_id):
+        self.db = db
+        self.user_id = user_id
+        self.agent_id = agent_id
 
     def process_utterance(self, speaker, utterance):
-        self.sql_db.db_stm.store_utterance(speaker, utterance)
+        self.db.stm.store_utterance(self.user_id, self.agent_id, speaker, utterance)
 
-    def retreive_utterances(self, num_entries=10):
-        return self.sql_db.db_stm.retreive_utterances(num_entries)
+    def retrieve_utterances(self, num_entries=10):
+        return self.db.stm.retrieve_utterances(self.user_id, self.agent_id, num_entries)
 
     def get_memory(self):
-        utterances = self.retreive_utterances()
+        utterances = self.retrieve_utterances()
         # Reverse the order of the utterances to show the most recent first
         utterances = utterances[::-1]
         memory_context = "START Short-Term Memory Recent Conversation History\n"
@@ -33,28 +35,33 @@ class MemoryShortTerm:
 
 # Episodic and Semantic Memory
 class MemoryLongTerm:
-    def __init__(self, system_container, data_container, memory_system, sql_db):
-        self.sql_db = sql_db
+    def __init__(self, user_id, agent_id, memory_system):
+        self.user_id = user_id
+        self.agent_id = agent_id
         self.memory_system = memory_system
-
-        system_container = utils.normalize_folder_name(system_container)
-        data_container = utils.normalize_folder_name(data_container)
-
-        self.vector_db_client = chromadb.PersistentClient(path=f"./db/{system_container}/{data_container}/vector.db", settings=chromadb.config.Settings(anonymized_telemetry=False))
-        self.episodic_collection = self.vector_db_client.get_or_create_collection(
-            "long_term_episodic_memory",
-            metadata={
-                "description": "Contains summaries on conversation topics relating to personal experiences.",
-                "created": str(datetime.now())
-            }
+        self.db = memory_system.db
+        
+        # Use the new VectorStore class
+        from database.vector_store import VectorStore
+        
+        # Create vector stores for episodic and semantic memory
+        self.episodic_store = VectorStore(
+            user_id=user_id,
+            agent_id=agent_id,
+            db_type="chroma",
+            collection_name="episodic_memory"
         )
-        self.semantic_collection = self.vector_db_client.get_or_create_collection(
-            "long_term_semantic_memory",
-            metadata={
-                "description": "Contains summaries on conversation topics relating to factual, conceptual knowledge.",
-                "created": str(datetime.now())
-            }
+        
+        self.semantic_store = VectorStore(
+            user_id=user_id,
+            agent_id=agent_id,
+            db_type="chroma",
+            collection_name="semantic_memory"
         )
+        
+        # For backward compatibility
+        self.episodic_collection = self.episodic_store.collection
+        self.semantic_collection = self.semantic_store.collection
 
     def generate_topic_analysis(self, utterance_list):
 # Analyze topic conversation
@@ -179,14 +186,14 @@ must be short and token-efficient, yet contain enough detail to be useful for me
 
     def detect_topic_boundaries(self):
         topic_boundary = None
-        topic_boundaries = self.sql_db.db_ltm.retreive_topic_boundaries(1)
+        topic_boundaries = self.db.ltm.retrieve_topic_boundaries(self.user_id, self.agent_id, 1)
         if len(topic_boundaries) == 1:
             topic_boundary = topic_boundaries[0]
 
         if topic_boundary == None:
-            utterance_list = self.sql_db.db_stm.retreive_utterances()
+            utterance_list = self.db.stm.retrieve_utterances(self.user_id, self.agent_id)
         else:
-            utterance_list = self.sql_db.db_stm.retreive_utterances_since_id(topic_boundary["end_utterance_id"])
+            utterance_list = self.db.stm.retrieve_utterances_since_id(self.user_id, self.agent_id, topic_boundary["end_utterance_id"])
 
         if len(utterance_list) < 50:
             return
@@ -249,15 +256,17 @@ Below is the conversation:
         # Store the topic boundaries in the database
         topic_utterance_list =[]
         for topic_segment in response["topic_segments"]:
-            topic_utterance_list = self.sql_db.db_stm.retreive_utterances_range(topic_segment["start_utterance_id"], topic_segment["end_utterance_id"])
+            topic_utterance_list = self.db.stm.retrieve_utterances_range(self.user_id, self.agent_id, topic_segment["start_utterance_id"], topic_segment["end_utterance_id"])
             response = self.generate_topic_analysis(topic_utterance_list)
             # Store in Vector Memory
             self.store_topic_memories(response)
-            self.sql_db.db_ltm.store_topic_boundaries(
-                topic_segment["topic_name"],
-                topic_segment["topic_conversation_summary"],
-                topic_segment["start_utterance_id"],
-                topic_segment["end_utterance_id"]
+            self.db.ltm.store_topic_boundaries(
+                user_id=self.user_id,
+                agent_id=self.agent_id,
+                topic=topic_segment["topic_name"],
+                topic_conversation_summary=topic_segment["topic_conversation_summary"],
+                start_utterance_id=topic_segment["start_utterance_id"],
+                end_utterance_id=topic_segment["end_utterance_id"]
             )
 
         # Detect the Episodic and Semantic contexts from the conversation
@@ -334,17 +343,17 @@ Below is the conversation:
 
 
 # Synthesizes or abstracts from other memory stores to form a higher-level
-# “sense” or “gut feeling” about the conversation or user
+# "sense" or "gut feeling" about the conversation or user
 class MemoryIntuition:
     pass
 
-# Tracks user’s personality (traits, preferences, emotional states) as well as
-# the agent’s own stylistic or persona-driven attributes
+# Tracks user's personality (traits, preferences, emotional states) as well as
+# the agent's own stylistic or persona-driven attributes
 class MemoryPersonality:
     pass
 
-# Store user’s explicit goals or tasks the agent must address, as well as
-# agent’s current objectives.
+# Store user's explicit goals or tasks the agent must address, as well as
+# agent's current objectives.
 class MemoryTasks:
     pass
 
@@ -421,19 +430,17 @@ class MemoryTasks:
 # The Agent system does not need to know the details of how the memory is stored.
 # The Agent system will simply call store_memory and retrieve_memory methods.
 #
-# Retreived memory must be placed into the agent's context when generating a
+# retrieved memory must be placed into the agent's context when generating a
 # a response.
 class AgentMemory:
     def __init__(self, persona_config, agent):
-        persona_name = persona_config['persona']['name'].lower()
-        self.size_threshold = 100
         self.agent = agent
-        #self.semantic_memory = MemorySemanticRetrieval(persona_name)
-        self.sql_db = agent.sql_db
-        self.short_term_memory = MemoryShortTerm(self.sql_db)
-        self.long_term_memory = MemoryLongTerm(agent.session.username, persona_name, self, self.sql_db)
-        #self.intuitive_memory = MemoryIntuition(persona_name, self.sql_db)
-        #self.personality_memory = MemoryPersonality(self.sql_db)
+        self.user_id = agent.session.user_id
+        self.agent_id = agent.session.agent_id
+        self.db = agent.db
+        
+        self.short_term_memory = MemoryShortTerm(self.db, self.user_id, self.agent_id)
+        self.long_term_memory = MemoryLongTerm(self.user_id, self.agent_id, self)
 
 
 #     def analyze_conversation(self, user_input, agent_response):

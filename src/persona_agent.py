@@ -1,7 +1,7 @@
 from socratic_agent import SocraticAgent
 from single_agent import SingleAgent
 from persona_state import PersonaStateManager
-from sql_database.core import SQLDatabase
+from database import Database  # New import for ORM database
 from memory import AgentMemory
 import json
 from pprint import pprint
@@ -13,8 +13,12 @@ class PersonaAgent:
     def __init__(self, session, persona_config):
         self.session = session
         self.persona_config = persona_config
-        self.sql_db = SQLDatabase(self.session.username, persona_config.config['persona']['name'])
-        self.state_manager = PersonaStateManager(persona_config.config, self.sql_db)
+        
+        # Initialize the new ORM database
+        self.db = Database()
+        
+        # Initialize state manager with user_id and agent_id from session
+        self.state_manager = PersonaStateManager(persona_config.config, self.db, session)
 
         if self.persona_config.config['framework_settings']['reasoning_agent'] == "socratic":
             self.agent = SocraticAgent(session, self)
@@ -114,7 +118,7 @@ Your purpose is {persona_config['purpose']}.
             indent += "  "
             framework_states += self.pstring("Purpose", state_config['purpose'], indent)
             # If current state is the state being processed, then use the current state data
-            state_data = self.sql_db.db_states.get_persona_state_data(state_name)
+            state_data = self.db.states.get_persona_state_data(self.session.user_id, self.session.agent_id, state_name)
             framework_states += self.pstring("Goals", "", indent)
             for (goal_name, goal_config) in state_config['goals'].items():
                 indent += "  "
@@ -312,7 +316,7 @@ Instructions:
     # and the last 10 utterances in the conversation history
     def refresh(self):
         self.interaction_update_hud_content()
-        conversation_history = self.sql_db.db_stm.retreive_utterances()
+        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id)
         # iterate in reverse order to get the last 10 utterances
         conversation_history = conversation_history[::-1]
         for message in conversation_history:

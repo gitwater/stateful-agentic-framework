@@ -2,15 +2,16 @@ import json
 from pprint import pprint
 
 class PersonaStateManager:
-    def __init__(self, persona_config, sql_db):
+    def __init__(self, persona_config, db, session):
         self.state_obj_dict = {}
-        self.sql_db = sql_db
-        self.current_state = self.sql_db.db_states.get_persona_current_state()
+        self.db = db
+        self.session = session
+        self.current_state = self.db.states.get_persona_current_state(session.user_id, session.agent_id)
         if self.current_state == None:
             self.current_state = persona_config['framework_settings']['starting_state']
-            self.sql_db.db_states.set_persona_current_state(self.current_state)
+            self.db.states.set_persona_current_state(self.session.user_id, self.session.agent_id, self.current_state)
         for state_name, state_config in persona_config['states'].items():
-            self.state_obj_dict[state_name] = PersonaState(self, state_name, state_config, self.sql_db)
+            self.state_obj_dict[state_name] = PersonaState(self, state_name, state_config, self.db)
 
     def get_state_obj(self, state_name=None):
         if state_name:
@@ -25,15 +26,15 @@ class PersonaStateManager:
         if state_name not in self.state_obj_dict.keys():
             breakpoint()
         self.current_state = state_name
-        self.sql_db.db_states.set_persona_current_state(state_name)
+        self.db.states.set_persona_current_state(self.session.user_id, self.session.agent_id, state_name)
 
 
 class PersonaState:
 
-    def __init__(self, state_manager, state_name, state_config, sql_db):
+    def __init__(self, state_manager, state_name, state_config, db):
         self.state_manager = state_manager
         self.name = state_name
-        self.sql_db = sql_db
+        self.db = db
         self.config = state_config
         self.data_schema = {
             'goals': {}
@@ -44,7 +45,7 @@ class PersonaState:
             }
 
         #self.data_schema = state_config['data']
-        self.data = self.sql_db.db_states.get_persona_state_data(state_name)
+        self.data = self.db.states.get_persona_state_data(self.state_manager.session.user_id, self.state_manager.session.agent_id, state_name)
 
     @property
     def data_schema_json(self):
@@ -76,7 +77,7 @@ class PersonaState:
                     if value != None:
                         self.data['goals'][goal_name]['data'][key] = value
 
-        self.sql_db.db_states.set_persona_state_data(self.name, self.data)
+        self.db.states.set_persona_state_data(self.state_manager.session.user_id, self.state_manager.session.agent_id, self.name, self.data)
 
         # Change the state if necessary
         self.state_manager.set_current_state(llm_response['next_state'])
