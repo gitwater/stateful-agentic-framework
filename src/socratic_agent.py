@@ -4,10 +4,10 @@ import json
 import re
 import time
 from pprint import pprint
-from memory import AgentMemory
+from src.memory import AgentMemory
 from datetime import datetime
 import hashlib
-from agent import AgentCore
+from src.agent import AgentCore
 import logging
 
 debug_printing = False

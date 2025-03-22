@@ -1,8 +1,8 @@
 import random
-#from socratic_agent import SocraticAgent
-from persona_agent import PersonaAgent
-from user import User
-from cli import CLI
+from src.socratic_agent import SocraticAgent
+from src.persona_agent import PersonaAgent
+from src.user import User
+from src.cli import CLI
 from pprint import pprint
 import json
 from types import SimpleNamespace
@@ -79,7 +79,7 @@ class AgenticFrameworkConfig:
         return state_output_formats
 
 class SessionState:
-    def __init__(self, session_key, persona_config_path, username, disable_conversation_init):
+    def __init__(self, session_key, persona_config_path, disable_conversation_init):
         # Parse the session_key which is in the format "user_id:agent_id"
         self.user_id, self.agent_id = session_key.split(":")
         self.client_id = session_key  # Keep this for backward compatibility

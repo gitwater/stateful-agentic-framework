@@ -1,4 +1,4 @@
-from agent import AgentCore
+from src.agent import AgentCore
 from pprint import pprint
 import json
 import logging

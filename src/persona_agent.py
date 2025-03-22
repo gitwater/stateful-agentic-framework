@@ -1,8 +1,8 @@
-from socratic_agent import SocraticAgent
-from single_agent import SingleAgent
-from persona_state import PersonaStateManager
-from database import Database  # New import for ORM database
-from memory import AgentMemory
+from src.socratic_agent import SocraticAgent
+from src.single_agent import SingleAgent
+from src.persona_state import PersonaStateManager
+from src.database import Database  # New import for ORM database
+from src.memory import AgentMemory
 import json
 from pprint import pprint
 import sys
