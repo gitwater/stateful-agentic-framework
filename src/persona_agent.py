@@ -346,6 +346,7 @@ Instructions:
 
         if agent_response != None:
             self.put_conversation_history('agent', agent_response)
+            self.interaction_update_hud_content()
 
         return True
 

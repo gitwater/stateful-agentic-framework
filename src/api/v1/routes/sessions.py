@@ -50,7 +50,7 @@ async def engage_agent(agent_data: EngageAgentRequest):
             # Send a refresh command to the agent
             try:
                 session_state = agent_sessions[session_key]["session_state"]
-                session_state.agent.get_conversation_history()
+                session_state.agent.get_conversation_history()                
                 logger.info(f"Refresh completed for session {session_key}")
             except Exception as e:
                 logger.error(f"Error during refresh for session {session_key}: {str(e)}")
