@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import yaml
 import logging
 import queue
+import sys
 
 class AgenticFrameworkConfig:
     def __init__(self, config_path):
@@ -108,11 +109,22 @@ class SessionState:
             return json.load(file, object_hook=lambda d: SimpleNamespace(**d))
 
     def send_user_message(self, message):
+        logging.info(f"### AGENT MESSAGE ### {message}")
+        # Backup direct print to ensure visibility
+        print(f"### AGENT MESSAGE ### {message}")
+        # Also write to stderr to bypass any stdout redirect
+        sys.stderr.write(f"### AGENT MESSAGE STDERR ### {message[:50]}...\n")
+        sys.stderr.flush()
         agent_msg = {'role': 'Agent', 'response': message}
         self.agent_msgs.append(agent_msg)
 
-
     def send_as_user_message(self, message):
+        logging.info(f"### USER MESSAGE ### {message}")
+        # Backup direct print to ensure visibility 
+        print(f"### USER MESSAGE ### {message}")
+        # Also write to stderr to bypass any stdout redirect
+        sys.stderr.write(f"### USER MESSAGE STDERR ### {message[:50]}...\n")
+        sys.stderr.flush()
         agent_msg = {'role': 'User', 'response': message}
         self.agent_msgs.append(agent_msg)
 

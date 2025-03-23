@@ -45,10 +45,12 @@ class Database:
         from .services.ltm import LongTermMemoryService
         from .services.stm import ShortTermMemoryService
         from .services.states import StatesService
+        from .services.agents import AgentsService
         
         self.ltm = LongTermMemoryService(self)
         self.stm = ShortTermMemoryService(self)
         self.states = StatesService(self)
+        self.agents = AgentsService(self)
         
         # Auto-create tables if they don't exist
         self.create_all()

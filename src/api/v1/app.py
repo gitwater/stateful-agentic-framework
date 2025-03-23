@@ -56,6 +56,18 @@ async def startup_event():
     config_dir = os.path.join(os.getcwd(), 'tmp', 'configs')
     os.makedirs(config_dir, exist_ok=True)
     
+    # Print diagnostic information to multiple outputs
+    startup_msg = f"FastAPI server started - logging at level {logging.getLevelName(logging.getLogger().getEffectiveLevel())}"
+    logger.info(startup_msg)
+    print(f"STDOUT DIAGNOSTIC: {startup_msg}")
+    sys.stderr.write(f"STDERR DIAGNOSTIC: {startup_msg}\n")
+    sys.stderr.flush()
+    
+    logger.info("Test message to check if logging is working")
+    print("Test print to check if stdout is visible")
+    sys.stderr.write("Test stderr write to check if stderr is visible\n")
+    sys.stderr.flush()
+    
     # Set environment variables
     os.environ["CHROMA_DISABLE_TELEMETRY"] = "true"
     

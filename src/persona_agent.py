@@ -264,8 +264,8 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
 
         return response
 
-    def interaction_get_starting_conversation(self):
-
+    async def interaction_get_starting_conversation(self):
+        print("DEBUG: interaction_get_starting_conversation")
         start_conv_prompt = """The user has just begun a conversation with you, generate a response approrate for the
 starting point of the conversation based on the current state, its data, and goals (both framework and current state)."""
 
@@ -280,6 +280,7 @@ starting point of the conversation based on the current state, its data, and goa
 {response['agent_greeting_response']}\n
 {response['agent_question_response']}
 """
+        print(f"DEBUG: Before send_user_message: agent_response: {agent_response}")
         self.session.send_user_message(agent_response)
         self.session.conversation_started = True
 
@@ -322,8 +323,10 @@ Instructions:
         for message in conversation_history:
             if message['speaker'] == 'user':
                 self.session.send_as_user_message(message['utterance'])
+                print(f"DEBUG: Called send_as_user_message with utterance: {message['utterance'][:30]}...")
             else:
                 self.session.send_user_message(message['utterance'])
+                print(f"DEBUG: Called send_user_message with utterance: {message['utterance'][:30]}...")
 
 
     # Processes the interactions with the User

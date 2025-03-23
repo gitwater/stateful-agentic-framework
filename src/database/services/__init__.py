@@ -5,4 +5,5 @@ This module contains service classes that provide business logic for interacting
 
 from .ltm import LongTermMemoryService
 from .stm import ShortTermMemoryService
-from .states import StatesService 
+from .states import StatesService
+from .agents import AgentsService 

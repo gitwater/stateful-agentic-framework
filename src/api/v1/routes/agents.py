@@ -9,9 +9,13 @@ from src.api.v1.models import (
 from src.api.v1.utils import extract_agent_metadata, get_session_key
 from typing import List, Dict, Any, Optional
 import logging
+from src.database import Database
+import uuid
 
 # Set up logging
 logger = logging.getLogger(__name__)
+# Set logging level
+logging.basicConfig(level=logging.INFO)
 
 # Define router
 router = APIRouter(
@@ -19,57 +23,71 @@ router = APIRouter(
     tags=["Agents"],
 )
 
-# Global variables for agent management (to be replaced with database)
-agents_db = {}  # Placeholder for database
+# Get database instance
+db = Database()
 
 @router.post("/", response_model=AgentResponse)
 async def create_agent(agent_data: CreateAgentRequest):
     """
     Create a new agent for a user.
     """
-    # Extract metadata to verify the config
-    metadata = extract_agent_metadata(agent_data.config)
+    # Log the request payload for debugging
+    logger.info(f"Received create_agent request with payload: {agent_data.json()}")
     
-    # Create agent entry (placeholder for database operation)
-    agent_entry = {
-        "agent_id": agent_data.agent_id,
-        "user_id": agent_data.user_id,
-        "config": agent_data.config,
-        "name": metadata["name"],
-        "description": metadata["description"],
-        "purpose": metadata["purpose"],
-    }
-    
-    # Store in our placeholder database
-    key = f"{agent_data.user_id}:{agent_data.agent_id}"
-    agents_db[key] = agent_entry
-    
-    # Return the created agent
-    return {
-        "agent_id": agent_data.agent_id,
-        "name": metadata["name"],
-        "description": metadata["description"],
-        "purpose": metadata["purpose"],
-    }
+    try:
+        # Extract metadata to verify the config
+        metadata = extract_agent_metadata(agent_data.config)
+
+        # Generate a new UUID for the agent_id
+        agent_id = str(uuid.uuid4())
+        
+        # Create agent in the database
+        agent = db.agents.create_agent(
+            user_id=agent_data.user_id,
+            agent_id=agent_id,
+            config=agent_data.config
+        )
+        
+        # Return the created agent using the captured metadata and agent_id
+        # This avoids accessing the agent object after the session might be closed
+        return {
+            "agent_id": agent_id,
+            "name": metadata["name"],
+            "description": metadata["description"],
+            "purpose": metadata["purpose"],
+        }
+    except Exception as e:
+        # Log the error for debugging
+        logger.error(f"Error creating agent: {str(e)}")
+        raise HTTPException(status_code=422, detail=f"Error creating agent: {str(e)}")
 
 @router.get("/", response_model=AgentListResponse)
 async def list_agents(user_id: str = Query(..., description="ID of the user whose agents to list")):
     """
     List all agents owned by a user.
     """
-    # Filter agents by user_id (placeholder for database query)
-    user_agents = []
-    
-    for key, agent in agents_db.items():
-        if agent["user_id"] == user_id:
+    try:
+        # Get agents from database (now returns dictionaries, not Agent objects)
+        agents_data = db.agents.list_agents(user_id)
+        
+        # Format response
+        user_agents = []
+        for agent_data in agents_data:
+            # Get metadata from config
+            metadata = extract_agent_metadata(agent_data["config"])
+            
             user_agents.append({
-                "agent_id": agent["agent_id"],
-                "name": agent["name"],
-                "description": agent["description"],
-                "purpose": agent["purpose"],
+                "agent_id": agent_data["agent_id"],
+                "name": metadata["name"],
+                "description": metadata["description"],
+                "purpose": metadata["purpose"],
             })
-    
-    return {"agents": user_agents}
+        
+        return {"agents": user_agents}
+    except Exception as e:
+        # Log the error for debugging
+        logger.error(f"Error listing agents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing agents: {str(e)}")
 
 @router.get("/{agent_id}", response_model=AgentDetailResponse)
 async def get_agent(
@@ -79,21 +97,30 @@ async def get_agent(
     """
     Get details of a specific agent.
     """
-    # Lookup agent by ID (placeholder for database query)
-    key = f"{user_id}:{agent_id}"
-    agent = agents_db.get(key)
-    
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    return {
-        "agent_id": agent["agent_id"],
-        "user_id": agent["user_id"],
-        "name": agent["name"],
-        "description": agent["description"],
-        "purpose": agent["purpose"],
-        "config": agent["config"],
-    }
+    try:
+        # Get agent from database (now returns a dictionary, not an Agent object)
+        agent_data = db.agents.get_agent(user_id, agent_id)
+        
+        if not agent_data:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Extract metadata from config
+        metadata = extract_agent_metadata(agent_data["config"])
+        
+        return {
+            "agent_id": agent_data["agent_id"],
+            "user_id": agent_data["user_id"],
+            "name": metadata["name"],
+            "description": metadata["description"],
+            "purpose": metadata["purpose"],
+            "config": agent_data["config"],
+        }
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Agent not found")
+        # Log the error for debugging
+        logger.error(f"Error retrieving agent: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving agent: {str(e)}")
 
 @router.put("/{agent_id}", response_model=AgentResponse)
 async def update_agent(
@@ -103,30 +130,32 @@ async def update_agent(
     """
     Update an existing agent's configuration.
     """
-    # Check if the agent exists
-    key = f"{agent_data.user_id}:{agent_id}"
-    if key not in agents_db:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    # Extract metadata to verify the config
-    metadata = extract_agent_metadata(agent_data.config)
-    
-    # Update agent entry (placeholder for database operation)
-    agent = agents_db[key]
-    agent["config"] = agent_data.config
-    agent["name"] = metadata["name"]
-    agent["description"] = metadata["description"]
-    agent["purpose"] = metadata["purpose"]
-    
-    # If the agent is currently active in a session, tell it to refresh
-    # (This would be handled by the session management system)
-    
-    return {
-        "agent_id": agent_id,
-        "name": metadata["name"],
-        "description": metadata["description"],
-        "purpose": metadata["purpose"],
-    }
+    try:
+        # Extract metadata to verify the config
+        metadata = extract_agent_metadata(agent_data.config)
+        
+        # Update agent in database (now returns a dictionary, not an Agent object)
+        updated_agent = db.agents.update_agent(
+            user_id=agent_data.user_id,
+            agent_id=agent_id,
+            config=agent_data.config
+        )
+        
+        if not updated_agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        return {
+            "agent_id": agent_id,
+            "name": metadata["name"],
+            "description": metadata["description"],
+            "purpose": metadata["purpose"],
+        }
+    except Exception as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Agent not found")
+        # Log the error for debugging
+        logger.error(f"Error updating agent: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating agent: {str(e)}")
 
 @router.delete("/{agent_id}", response_model=dict)
 async def delete_agent(
@@ -136,15 +165,10 @@ async def delete_agent(
     """
     Delete an agent.
     """
-    # Check if the agent exists
-    key = f"{user_id}:{agent_id}"
-    if key not in agents_db:
+    # Delete agent from database
+    success = db.agents.delete_agent(user_id, agent_id)
+    
+    if not success:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
-    # Delete the agent (placeholder for database operation)
-    del agents_db[key]
-    
-    # If the agent is currently in a session, end the session
-    # (This would be handled by the session management system)
     
     return {"status": "agent deleted"} 

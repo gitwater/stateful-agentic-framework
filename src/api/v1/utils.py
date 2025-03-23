@@ -19,9 +19,9 @@ def extract_agent_metadata(config_yaml: str) -> Dict[str, str]:
     try:
         config = yaml.safe_load(config_yaml)
         return {
-            "name": config.get("name", "Unnamed Agent"),
-            "description": config.get("description", ""),
-            "purpose": config.get("purpose", "")
+            "name": config['persona'].get("name", "Unnamed Agent"),
+            "description": config['persona'].get("description", ""),
+            "purpose": config['persona'].get("purpose", "")
         }
     except Exception as e:
         logger.error(f"Error parsing agent config: {e}")
