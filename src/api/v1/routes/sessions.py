@@ -25,7 +25,8 @@ router = APIRouter(
 # Global variable for session management
 # In a production environment, this would be replaced with a database or Redis
 agent_sessions: Dict[str, Dict[str, Any]] = {}
-
+# This is called whenever the client is first engaging or wants to resume a session
+# and needs the current state of the conversaion, hud, and any other information
 @router.post("/engage", response_model=SessionResponse)
 async def engage_agent(agent_data: EngageAgentRequest):
     """
@@ -97,9 +98,8 @@ async def engage_agent(agent_data: EngageAgentRequest):
             "agent_dialog_messages": []
         }
         
-        # Start the initial conversation if needed
-        if not session_state.conversation_started and not session_state.disable_conversation_init:
-            await session_state.agent.interaction_get_starting_conversation() 
+        # Start or resume the conversation
+        await session_state.agent.interaction_get_starting_conversation() 
     
     except Exception as e:
         logger.error(f"Error creating session {session_key}: {str(e)}")
@@ -153,16 +153,7 @@ async def send_message(session_key: str, message_data: MessageRequest):
     
     # Process the message in a background thread to avoid blocking
     try:
-        # Process the message in a separate thread using asyncio.to_thread
-        # This prevents blocking the event loop while processing the message
-        success = await session_state.agent.interactions(message_data.message)
-        
-        if not success:
-            logger.error(f"Error processing message for session {session_key}")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to process message"
-            )
+        await session_state.agent.process_user_input(message_data.message)        
     except Exception as e:
         logger.error(f"Error sending message to session {session_key}: {str(e)}")
         raise HTTPException(

@@ -222,10 +222,6 @@ Current State: {current_state}
 
         return messages
 
-    def process_user_input(self, user_input):
-        self.current_user_input = user_input
-        self.put_conversation_history('user', user_input)
-
 
     def interaction_get_response(self, system_message, json_format_dict=None):
         messages = []
@@ -265,6 +261,20 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
         return response
 
     async def interaction_get_starting_conversation(self):
+        # Check if there are any utterances in the conversation history, if so then
+        # place up to the last 10 utterances into the sesions message queue
+        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id, 10)
+        if len(conversation_history) > 0:
+            for utterance in conversation_history:
+                if utterance['speaker'] == 'user':
+                    self.session.send_as_user_message(utterance['utterance'])
+                else:
+                    self.session.send_user_message(utterance['utterance'])
+            self.session.conversation_started = True
+            # Render the HUD content and send it to the user
+            self.interaction_update_hud_content()
+            return None
+
         print("DEBUG: interaction_get_starting_conversation")
         start_conv_prompt = """The user has just begun a conversation with you, generate a response approrate for the
 starting point of the conversation based on the current state, its data, and goals (both framework and current state)."""
@@ -281,7 +291,11 @@ starting point of the conversation based on the current state, its data, and goa
 {response['agent_question_response']}
 """
         print(f"DEBUG: Before send_user_message: agent_response: {agent_response}")
+
+        self.put_conversation_history('agent', agent_response)
+
         self.session.send_user_message(agent_response)
+
         self.session.conversation_started = True
 
         # Render the HUD content and send it to the user
@@ -317,7 +331,7 @@ Instructions:
     # and the last 10 utterances in the conversation history
     def refresh(self):
         self.interaction_update_hud_content()
-        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id)
+        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id, 10)
         # iterate in reverse order to get the last 10 utterances
         conversation_history = conversation_history[::-1]
         for message in conversation_history:
@@ -327,24 +341,21 @@ Instructions:
             else:
                 self.session.send_user_message(message['utterance'])
                 print(f"DEBUG: Called send_user_message with utterance: {message['utterance'][:30]}...")
+    
 
+    async def process_user_input(self, user_input):
+        self.current_user_input = user_input
+        self.put_conversation_history('user', user_input)
+        agent_response = await self.agent.interactions(user_input)
+
+        if agent_response != None:
+            self.put_conversation_history('agent', agent_response)
+
+        return True
 
     # Processes the interactions with the User
-    def interactions(self, user_input=None):
-        update_hud = False
-        agent_response = None
-        if user_input != None:
-            self.process_user_input(user_input)
-            update_hud = True
-
-        if self.session.conversation_started == False and self.session.disable_conversation_init == False:
-            agent_response = self.interaction_get_starting_conversation()
-        else:
-            agent_response = self.agent.interactions(user_input)
-
-        if update_hud:
-            self.interaction_update_hud_content()
-
+    async def interactions(self):        
+        agent_response = self.agent.interactions()
         if agent_response != None:
             self.put_conversation_history('agent', agent_response)
 

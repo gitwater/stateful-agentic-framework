@@ -81,7 +81,7 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
         return llm_response['agent_response']
 
 
-    def interactions(self, user_input=None):
+    async def interactions(self, user_input=None):
         agent_response = None
         if user_input != None:            # Continue the Socratic conversation to generate a response to the user's input
             agent_response = self.interaction_respond_to_user_input()

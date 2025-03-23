@@ -2,7 +2,7 @@
 Short Term Memory (STM) service for handling operations related to conversation utterances.
 """
 
-from sqlalchemy import desc
+from sqlalchemy import desc, asc
 from ..models.stm import Utterance
 
 class ShortTermMemoryService:
@@ -68,10 +68,10 @@ class ShortTermMemoryService:
             list: A list of dictionaries containing utterance information
         """
         with self.db.session() as session:
-            # Build the query
+            # Build the query, order by created_at ascending
             query = session.query(Utterance)\
                 .filter_by(user_id=user_id, agent_id=agent_id)\
-                .order_by(desc(Utterance.created_at))
+                .order_by(asc(Utterance.created_at))
                 
             # Apply limit if specified
             if num_entries > 0:
