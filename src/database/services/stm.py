@@ -68,7 +68,7 @@ class ShortTermMemoryService:
             list: A list of dictionaries containing utterance information
         """
         with self.db.session() as session:
-            # Build the query, order by created_at ascending
+            # Build the query and get the results from newest to oldest
             query = session.query(Utterance)\
                 .filter_by(user_id=user_id, agent_id=agent_id)\
                 .order_by(asc(Utterance.created_at))
@@ -80,7 +80,7 @@ class ShortTermMemoryService:
             # Execute the query
             utterances = query.all()
             
-            # Format the results
+            # Format the results, ensure they remain in the order they were retrieved
             entries_list = []
             for utterance in utterances:
                 entries_list.append({

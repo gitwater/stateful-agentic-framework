@@ -35,11 +35,11 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
 
     #     return True
 
-    def interaction_respond_to_user_input(self):
+    def interaction_respond_to_user_input(self, user_input):
 
         # Take user input and process it through the State
         #
-        messages = self.persona_agent.get_framework_messages([], state_data_json_response=True)
+        messages = self.persona_agent.get_framework_messages([], state_data_json_response=True, user_input=user_input)
         # --------------------------------------------------
         # Static Framework Information
         # messages.append({
@@ -56,7 +56,7 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
         # User Input
         messages.append({
             "role": "user",
-            "content": f"Current User Input: \"{self.persona_agent.current_user_input}\"."
+            "content": f"Current User Input: \"{user_input}\"."
         })
 
         llm_response = self.get_response(messages, json_response=False)
@@ -74,8 +74,6 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
         # breakpoint()
         self.persona_agent.state_manager.update_state_from_llm_response(llm_response)
 
-        # TODO:
-        #breakpoint()
         self.session.send_user_message(llm_response['agent_response'])
 
         return llm_response['agent_response']
@@ -84,7 +82,7 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
     async def interactions(self, user_input=None):
         agent_response = None
         if user_input != None:            # Continue the Socratic conversation to generate a response to the user's input
-            agent_response = self.interaction_respond_to_user_input()
+            agent_response = self.interaction_respond_to_user_input(user_input)
 
         # If the user has not provided input, and the agent has already asked a question
         # Do nothing

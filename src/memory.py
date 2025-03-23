@@ -24,7 +24,7 @@ class MemoryShortTerm:
     def get_memory(self):
         utterances = self.retrieve_utterances()
         # Reverse the order of the utterances to show the most recent first
-        utterances = utterances[::-1]
+        #utterances = utterances[::-1]
         memory_context = "START Short-Term Memory Recent Conversation History\n"
         for utterance in utterances:
             memory_context += f"{utterance['speaker']}: {utterance['utterance']}\n"

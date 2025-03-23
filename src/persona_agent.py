@@ -25,15 +25,14 @@ class PersonaAgent:
         else:
             self.single_agent = SingleAgent(session, self)
             self.agent = self.single_agent
-
-        self.current_user_input = None
+        
         self.memory_system = AgentMemory(persona_config.config, self)
 
-    def get_conversation_memory(self):
-        user_input = ""
-        if self.current_user_input != None:
-            user_input = self.current_user_input
-        memory = self.memory_system.get_memory(user_input)
+    def get_conversation_memory(self, user_input=None):
+        memory_lookup_input = ""
+        if user_input == None:
+            memory_lookup_input = user_input
+        memory = self.memory_system.get_memory(memory_lookup_input)
         return memory
 
 
@@ -92,7 +91,7 @@ class PersonaAgent:
     # Get the framework messages for the persona
     # Persona
     #
-    def get_framework_messages(self, messages, state_data_json_response=False):
+    def get_framework_messages(self, messages, state_data_json_response=False, user_input=None):
         persona_config = self.persona_config.config['persona']
         persona_state_obj = self.state_manager.get_state_obj()
         # Persona
@@ -167,7 +166,7 @@ Your purpose is {persona_config['purpose']}.
             count += 1
 
         # Memory Context
-        memory_context = self.get_conversation_memory()
+        memory_context = self.get_conversation_memory(user_input)
         #memory_context = ""
 
         # Output Format Text
@@ -223,10 +222,10 @@ Current State: {current_state}
         return messages
 
 
-    def interaction_get_response(self, system_message, json_format_dict=None):
+    def interaction_get_response(self, system_message, json_format_dict=None, user_input=None):
         messages = []
         prompt_messages = []
-        framework_messages = self.get_framework_messages(messages)
+        framework_messages = self.get_framework_messages(messages, user_input=user_input)
         messages.extend(framework_messages)
 
         prompt_messages.append({
@@ -260,10 +259,8 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
 
         return response
 
-    async def interaction_get_starting_conversation(self):
-        # Check if there are any utterances in the conversation history, if so then
-        # place up to the last 10 utterances into the sesions message queue
-        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id, 10)
+    def get_conversation_history(self):
+        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id, 50)
         if len(conversation_history) > 0:
             for utterance in conversation_history:
                 if utterance['speaker'] == 'user':
@@ -273,7 +270,15 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
             self.session.conversation_started = True
             # Render the HUD content and send it to the user
             self.interaction_update_hud_content()
+            return True
+        return False
+
+    async def interaction_get_starting_conversation(self):
+        # Check if there are any utterances in the conversation history, if so then
+        # place up to the last 10 utterances into the sesions message queue
+        if self.get_conversation_history():
             return None
+
 
         print("DEBUG: interaction_get_starting_conversation")
         start_conv_prompt = """The user has just begun a conversation with you, generate a response approrate for the
@@ -284,7 +289,7 @@ starting point of the conversation based on the current state, its data, and goa
             'agent_question_response': "<Place a question here relevant to the current state to keep the conversation going. Format with Markdown using the Markdown and Response Instructions.>",
         }
 
-        response = self.interaction_get_response(start_conv_prompt, json_format_dict)
+        response = self.interaction_get_response(start_conv_prompt, json_format_dict, user_input=None)
 
         agent_response = f"""
 {response['agent_greeting_response']}\n
@@ -321,7 +326,7 @@ Instructions:
             'hud_content': "<Generate HUD content <variables> using state data. Format with Markdown using the Markdown and Response Instructions.>",
         }
 
-        response = self.interaction_get_response(hud_prompt_message, json_format_dict)
+        response = self.interaction_get_response(hud_prompt_message, json_format_dict, user_input=None)
 
         self.session.send_hud_message(response['hud_content'])
 
@@ -330,21 +335,12 @@ Instructions:
     # Refresh the conversation by sending the HUD content to the user
     # and the last 10 utterances in the conversation history
     def refresh(self):
+        return
         self.interaction_update_hud_content()
-        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id, 10)
-        # iterate in reverse order to get the last 10 utterances
-        conversation_history = conversation_history[::-1]
-        for message in conversation_history:
-            if message['speaker'] == 'user':
-                self.session.send_as_user_message(message['utterance'])
-                print(f"DEBUG: Called send_as_user_message with utterance: {message['utterance'][:30]}...")
-            else:
-                self.session.send_user_message(message['utterance'])
-                print(f"DEBUG: Called send_user_message with utterance: {message['utterance'][:30]}...")
-    
+        conversation_history = self.db.stm.retrieve_utterances(self.session.user_id, self.session.agent_id, 50)
+        
 
-    async def process_user_input(self, user_input):
-        self.current_user_input = user_input
+    async def process_user_input(self, user_input):        
         self.put_conversation_history('user', user_input)
         agent_response = await self.agent.interactions(user_input)
 
@@ -354,9 +350,9 @@ Instructions:
         return True
 
     # Processes the interactions with the User
-    async def interactions(self):        
-        agent_response = self.agent.interactions()
-        if agent_response != None:
-            self.put_conversation_history('agent', agent_response)
+    #async def interactions(self):        
+    #    agent_response = self.agent.interactions()
+    ##    if agent_response != None:
+     #       self.put_conversation_history('agent', agent_response)
 
-        return True
+     #   return True
