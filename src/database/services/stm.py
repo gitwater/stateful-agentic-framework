@@ -54,7 +54,16 @@ class ShortTermMemoryService:
                 utterance=utterance
             )
             return utterance_obj
-    
+
+    def delete_utterances(self, user_id, agent_id):
+        """
+        Delete all utterances for a given user and agent.
+        """
+        with self.db.session() as session:
+            session.query(Utterance).filter_by(user_id=user_id, agent_id=agent_id).delete()
+
+        return True
+        
     def retrieve_utterances(self, user_id, agent_id, num_entries=-1):
         """
         Retrieve utterances.

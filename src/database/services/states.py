@@ -106,3 +106,12 @@ class StatesService:
             any: The state data or None if not found
         """
         return self.get_persona_state_data(user_id, agent_id, 'current_state') 
+
+    def delete_persona_states(self, user_id, agent_id):
+        """
+        Delete all persona states for a given user and agent.
+        """
+        with self.db.session() as session:
+            session.query(PersonaState).filter_by(user_id=user_id, agent_id=agent_id).delete()
+
+        return True

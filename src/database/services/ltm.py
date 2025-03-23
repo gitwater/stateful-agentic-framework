@@ -73,3 +73,12 @@ class LongTermMemoryService:
                 'start_utterance_id': topic.start_utterance_id,
                 'end_utterance_id': topic.end_utterance_id
             } for topic in topics] 
+
+    def delete_topics(self, user_id, agent_id):
+        """
+        Delete all topics for a given user and agent.
+        """
+        with self.db.session() as session:
+            session.query(Topic).filter_by(user_id=user_id, agent_id=agent_id).delete()
+
+        return True

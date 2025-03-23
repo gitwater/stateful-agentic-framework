@@ -167,8 +167,21 @@ async def delete_agent(
     """
     # Delete agent from database
     success = db.agents.delete_agent(user_id, agent_id)
-    
     if not success:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise HTTPException(status_code=404, detail=f"Agent not found: {user_id}:{agent_id}")
+    
+    # Delete all user:agent id data from the databases
+    success = db.stm.delete_utterances(user_id, agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Failed to delete utterances: {user_id}:{agent_id}")
+    success = db.states.delete_persona_states(user_id, agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Failed to delete persona states: {user_id}:{agent_id}")
+    success = db.ltm.delete_topics(user_id, agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Failed to delete topics: {user_id}:{agent_id}")
+
+    
+
     
     return {"status": "agent deleted"} 
