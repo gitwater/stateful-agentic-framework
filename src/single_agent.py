@@ -54,17 +54,25 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
 
         # --------------------------------------------------
         # User Input
+
+        self.session.send_debug_message("agent_prompt", "---------------------------------------------------------------------")
+        #self.session.send_debug_message("agent_prompt", "Agent Prompt:")        
+        #for message in messages:
+        #    self.session.send_debug_message("agent_prompt", f"{message['content']}")
+        #self.session.send_debug_message("agent_prompt", "---------------------------------------------------------------------")
+
         messages.append({
             "role": "user",
-            "content": f"Current User Input: \"{user_input}\"."
-        })
-
+            "content": f"User Input: \"{user_input}\"."
+        })        
         llm_response = self.get_response(messages, json_response=False)
+        # Regex to repalce all newlines with '\n' between 
         try:
             llm_response = json.loads(llm_response)
-        except:
-            breakpoint()
-
+        except Exception as e:            
+            # Send as much info as we can to the user
+            self.session.send_debug_message("agent_response", f"Error: single_agent: interaction_respond_to_user_input: {e}")
+            self.session.send_debug_message("agent_response", f"Response: {llm_response}")
         # TODO: Implement State Object for collecting data
         #state_obj = self.persona_agent.get_current_state()
         # process_user_input_response:
@@ -76,7 +84,7 @@ Your purpose is {self.persona_agent.persona_config.config['persona']['purpose']}
 
         self.session.send_user_message(llm_response['agent_response'])
 
-        return llm_response['agent_response']
+        return llm_response
 
 
     async def interactions(self, user_input=None):

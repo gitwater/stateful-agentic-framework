@@ -3,6 +3,7 @@ from src.single_agent import SingleAgent
 from src.persona_state import PersonaStateManager
 from src.database import Database  # New import for ORM database
 from src.memory import AgentMemory
+from src.tools.tools_manager import ToolsManager  # Import ToolsManager
 import json
 from pprint import pprint
 import sys
@@ -19,6 +20,10 @@ class PersonaAgent:
         
         # Initialize state manager with user_id and agent_id from session
         self.state_manager = PersonaStateManager(persona_config.config, self.db, session)
+
+        # Initialize tools manager
+        self.tools_manager = ToolsManager()
+        
 
         if self.persona_config.config['framework_settings']['reasoning_agent'] == "socratic":
             self.agent = SocraticAgent(session, self)
@@ -100,23 +105,36 @@ You are described as {persona_config['description']}.
 Your purpose is {persona_config['purpose']}.
 """
 
-        # Framework States
-        framework_states = "Available States and their details:\n"
+        # Framework States                
          # Current State
         current_state = persona_state_obj.name
 
         states_config = self.persona_config.config['states']
+        framework_state_settings = self.persona_config.config['framework_settings']['state_settings']
         state_list = []
         indent = "  "
+        framework_states = ""
         for (state_name, state_config) in states_config.items():
-            if 'visibility' in state_config.keys() and state_config['visibility'] == 'state_only' and current_state != state_name:
+            # framework_prompt_type: FULL_CURRENT_STATE # FULL_STATES | FULL_CURRENT_STATE | CURRENT_STATE_ONLY
+
+            # CURRENT_STATE_ONLY: If the current state is not the state being processed, then skip the state
+            if framework_state_settings['framework_prompt_type'] == 'CURRENT_STATE_ONLY' and current_state != state_name:
                 continue
-            # State
+
+            # State Name and Purpose
             state_list.append(state_name)
             framework_states += self.pstring("State", state_name, indent)
             indent += "  "
             framework_states += self.pstring("Purpose", state_config['purpose'], indent)
-            # If current state is the state being processed, then use the current state data
+
+            # FULL_CURRENT_STATE: If the current state is not the state being processed, then skip the state
+            if framework_state_settings['framework_prompt_type'] == 'FULL_CURRENT_STATE' and current_state != state_name:
+                # Take 2 characters off the indent
+                indent = indent[:-2]
+                framework_states += '\n'
+                continue
+
+            # FULL_STATES: Display all states and their information
             state_data = self.db.states.get_persona_state_data(self.session.user_id, self.session.agent_id, state_name)
             framework_states += self.pstring("Goals", "", indent)
             for (goal_name, goal_config) in state_config['goals'].items():
@@ -152,22 +170,27 @@ Your purpose is {persona_config['purpose']}.
             #     framework_states += self.pstring("", state_config['output_format'], indent)
 
             indent += "  "
-            framework_states += self.pstring(f"State Transition Criteria", "Only transition to another state when all of the {state_name}'s goals and their success criteria have been met.", indent)
+            if current_state == state_name:
+                framework_states += self.pstring(f"State Transition Criteria", "Only transition to another state when all of the {state_name}'s goals and their success criteria have been met.", indent)
             indent = indent[:-4]
-        framework_states += "States are considered complete only when all of their goals success criteria are met."
-        framework_states += "However, if asked, please display state outputs as configured by the outputs_format."
+
+        framework_states += "States are considered complete only when all of their goals success criteria are met.\n"
+        framework_states += "However, if asked, please display state outputs as configured by the outputs_format.\n\n"        
 
         # Framework Goals
         framework_goals = ""
         count = 1
-        for (name, goal) in self.persona_config.config['goals']['framework'].items():
-            if count == 1: framework_goals = "Global Framework Goals:\n"
+        for (name, goal) in self.persona_config.config['goals']['framework'].items():            
             framework_goals += self.pstring(name, goal, "  ")
             count += 1
 
         # Memory Context
         memory_context = self.get_conversation_memory(user_input)
+        
         #memory_context = ""
+
+        # Tool Description
+        tools_description = self.tools_manager.get_tools_prompt_description()
 
         # Output Format Text
         output_format_text = ""
@@ -178,9 +201,13 @@ The response should be provided in the following JSON format:
 {{
     "current_state": "{current_state}",
     "next_state": f"<Determine if the current state should change and place it here, otherwise stay in the same state: Valid states = {', '.join(state_list)}: Format with Markdown using the Markdown and Response Instructions.>",
-    'agent_response": "<Place your response here and esure that it contains a follow up question to keep the conversation going. Format with Markdown using the Markdown and Response Instructions.>",
+    "agent_response": "<Place your response here and esure that it contains a follow up question to keep the conversation going. Format with Markdown using the Markdown and Response Instructions. Newlines must be represented as '\\n' in the JSON response.>",
+    "tool_requests": ["<Tool request phrase: ie @TOOL:WEB_SEARCH:[search query]>", ...]
     "data": {persona_state_obj.data_schema_json}
 }}
+
+
+
 Ensure that the JSON response is loadable by json.loads(). Ensure that newlines are represented as '\\n' in the JSON response.
 Please rewrite the user's answers using a refined, professional tone suitable for formal documentation.
 """
@@ -199,30 +226,48 @@ Other Response Instructions:
   - Always separate questions with a newline if they are part of a paragraph.
   - Use the data in each of the states to help answer the existing state's goals and avoid asking the user questions if it does not need to.
   - If the user asks to switch to a different state, then switch to that state and perform the actions they asked or ask questions if needed.
+  - Double check to ensure that if you need to use a tool that you add your tool request to the "tool_requests" array.
 """
         # Framework Message
-        framework_message = f"""{persona_info}
-{framework_states}
-{framework_goals}
-{memory_context}
+        framework_message = f"""
+{persona_info}
+
+You are an LLM agent that can use tools to help you answer the user's questions and guide them through the stateful framework.
+
+STATEFUL FRAMEWORK CONFIGURATION START
+AVAILABLE STATES: START
 Current State: {current_state}
+{framework_states}
+AVAILABLE STATES: END
+FRAMEWORK GOALS: START
+{framework_goals}
+FRAMEWORK GOALS: END
+STATEFUL FRAMEWORK CONFIGURATION END
+MEMORY CONTEXT: START
+{memory_context}
+MEMORY CONTEXT: END
+{tools_description}
+RESPONSE AND MARKDOWN FORMAT REQUIREMENTS: START
 {response_and_markdown_format_requirements}
+RESPONSE AND MARKDOWN FORMAT REQUIREMENTS: END
+OUTPUT FORMAT TEXT: START
 {output_format_text}
+OUTPUT FORMAT TEXT: END
 """
         messages.append({
             "role": "system",
             "content": framework_message
         })
 
-        self.session.send_debug_message("---------------------------------------------------------------------")
-        self.session.send_debug_message("Framework Messages\n\n")
-        for message in messages:
-            self.session.send_debug_message(message['content'])
+        # self.session.send_debug_message("framework", "---------------------------------------------------------------------")
+        # self.session.send_debug_message("framework", "Framework Messages\n\n")
+        # for message in messages:
+        #    self.session.send_debug_message("framework", message['content'])
 
         return messages
 
 
-    def interaction_get_response(self, system_message, json_format_dict=None, user_input=None):
+    def interaction_get_response(self, interaction_type, system_message, json_format_dict=None, user_input=None):
         messages = []
         prompt_messages = []
         framework_messages = self.get_framework_messages(messages, user_input=user_input)
@@ -247,15 +292,24 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
             "content": json_response_content
         })
 
-        for message in prompt_messages:
-            self.session.send_debug_message(message['content'])
-        self.session.send_debug_message("---------------------------------------------------------------------")
+
 
         messages = framework_messages
         messages.extend(prompt_messages)
 
         response = self.get_response(messages, json_response=True)
-        self.session.send_debug_message(f"Get Response:\n{json.dumps(response, indent=4)}")
+
+        allowed_interaction_types = ['starting_conversation', 'hud_content']
+        allowed_interaction_types = []
+        if interaction_type in allowed_interaction_types:
+            self.session.send_debug_message("agent_prompt","---------------------------------------------------------------------")
+            self.session.send_debug_message("agent_prompt", "Agent Prompt\n")
+            for message in messages:
+                self.session.send_debug_message("agent_prompt", message['content'])
+            self.session.send_debug_message("agent_prompt","---------------------------------------------------------------------")
+            self.session.send_debug_message("agent_response", "Agent Response\n")
+            self.session.send_debug_message("agent_response", f"{json.dumps(response, indent=4)}")
+            self.session.send_debug_message("agent_response", "---------------------------------------------------------------------")
 
         return response
 
@@ -289,7 +343,7 @@ starting point of the conversation based on the current state, its data, and goa
             'agent_question_response': "<Place a question here relevant to the current state to keep the conversation going. Format with Markdown using the Markdown and Response Instructions.>",
         }
 
-        response = self.interaction_get_response(start_conv_prompt, json_format_dict, user_input=None)
+        response = self.interaction_get_response("starting_conversation", start_conv_prompt, json_format_dict, user_input=None)
 
         agent_response = f"""
 {response['agent_greeting_response']}\n
@@ -326,7 +380,7 @@ Instructions:
             'hud_content': "<Generate HUD content <variables> using state data. Format with Markdown using the Markdown and Response Instructions.>",
         }
 
-        response = self.interaction_get_response(hud_prompt_message, json_format_dict, user_input=None)
+        response = self.interaction_get_response("hud_content", hud_prompt_message, json_format_dict, user_input=None)
 
         self.session.send_hud_message(response['hud_content'])
 
@@ -342,12 +396,86 @@ Instructions:
 
     async def process_user_input(self, user_input):        
         self.put_conversation_history('user', user_input)
-        agent_response = await self.agent.interactions(user_input)
+        
+        # Get initial agent response
+        self.session.send_debug_message("agent_prompt", "---------------------------------------------------------------------")
+        self.session.send_debug_message("agent_prompt", f"User Input:\n{user_input}")
 
-        if agent_response != None:
-            self.put_conversation_history('agent', agent_response)
-            self.interaction_update_hud_content()
+        initial_agent_response = await self.agent.interactions(user_input)        
+        if initial_agent_response is None:
+            self.session.send_debug_message("agent_response", "No response from agent")
+            self.session.send_debug_message("agent_prompt", "---------------------------------------------------------------------")
+            return True
 
+        self.session.send_debug_message("agent_prompt", "Initial Agent Response:\n")
+        self.session.send_debug_message("agent_prompt", initial_agent_response)
+        self.session.send_debug_message("agent_prompt", "---------------------------------------------------------------------")
+            
+        # Try to parse the response as JSON to check for tool requests        
+        try:
+            # Check if initial_agent_response is already a dict            
+            response_json = initial_agent_response            
+            tool_requests = response_json.get("tool_requests", [])
+            
+            # If there are no tool requests in the JSON structure, proceed with the normal flow
+            if not tool_requests:
+                self.session.send_debug_message("tools", f"No tool requests found in JSON response")
+                self.put_conversation_history('agent', response_json['agent_response'])
+                self.interaction_update_hud_content()
+                return True
+                
+            # We have tool requests in the JSON
+            self.session.send_debug_message("tools", f"Detected {len(tool_requests)} tool request(s) in JSON response")
+            
+            # Process all tool requests
+            max_tool_calls = 5  # Safety limit
+            tool_call_count = 0
+            tool_results = []
+            
+            for tool_request in tool_requests:
+                if tool_call_count >= max_tool_calls:
+                    break
+
+                # tool_request is a string that looks something like: @TOOL:WEB_SEARCH:AI agent platform market trends, growth rate, demand drivers
+                # so we need to extract the tool name and parameters from the string
+                tool_name = tool_request.split(':')[1]                
+                tool_query = tool_request.split(':')[2]
+                if not tool_name:
+                    continue
+                    
+                # Populate parameters with the tool query
+                parameters = {"query": tool_query}
+                self.session.send_debug_message("tools", f"Executing tool: {tool_name}")
+                
+                # Execute the tool
+                tool_result = await self.tools_manager.execute_tool(tool_name, **parameters)
+                tool_results.append({
+                    "tool_name": tool_name,                    
+                    "result": tool_result
+                })
+                self.session.send_debug_message("tools", f"Tool results: {tool_name}:\n{tool_result}")
+                
+                tool_call_count += 1
+            
+            # If we have tool results, send them back to the agent
+            if tool_results:
+                follow_up_input = f"""I've executed the tools you requested. Here are the results:
+
+{json.dumps(tool_results, indent=2)}
+
+Please provide your final response based on these results."""
+            else:
+                follow_up_input = "I've executed the tools you requested, but there are no results."
+                
+            # Get a new response
+            final_agent_response = await self.agent.interactions(follow_up_input)
+            
+            self.put_conversation_history('agent', "Agent Response After Tool Execution:\n" + final_agent_response['agent_response'])
+            self.interaction_update_hud_content()            
+        except Exception as e:
+            self.session.send_debug_message("tools", f"Error parsing JSON: {e}")
+            self.put_conversation_history('agent', "I encountered an error processing your request. Please try again or contact support.")
+        
         return True
 
     # Processes the interactions with the User

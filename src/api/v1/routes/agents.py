@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 import logging
 from src.database import Database
 import uuid
+from src.session_manager import restart_sessions_for_agent, remove_session, gen_session_key
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -142,7 +143,11 @@ async def update_agent(
         )
         
         if not updated_agent:
-            raise HTTPException(status_code=404, detail="Agent not found")
+            raise HTTPException(status_code=404, detail="Agent not found")        
+        
+        # Restart all sessions for this agent
+        restart_sessions_for_agent(agent_data.user_id, agent_id)
+        logger.info(f"Restarted sessions for agent {agent_id} due to config update")
         
         return {
             "agent_id": agent_id,
@@ -174,14 +179,17 @@ async def delete_agent(
     success = db.stm.delete_utterances(user_id, agent_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"Failed to delete utterances: {user_id}:{agent_id}")
+
     success = db.states.delete_persona_states(user_id, agent_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"Failed to delete persona states: {user_id}:{agent_id}")
+
     success = db.ltm.delete_topics(user_id, agent_id)
     if not success:
         raise HTTPException(status_code=404, detail=f"Failed to delete topics: {user_id}:{agent_id}")
-
     
-
+    # Restart (effectively delete) all sessions for this agent
+    session_key = gen_session_key(user_id, agent_id)
+    remove_session(session_key)
     
     return {"status": "agent deleted"} 

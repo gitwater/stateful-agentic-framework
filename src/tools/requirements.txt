@@ -1,0 +1,2 @@
+aiohttp>=3.8.0  # For async HTTP requests
+python-dotenv>=1.0.0  # For handling environment variables (optional) 

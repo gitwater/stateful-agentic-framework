@@ -12,6 +12,7 @@ import logging
 import os
 import asyncio
 from src.session import SessionState
+from src.session_manager import get_session, add_session, remove_session
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -22,9 +23,6 @@ router = APIRouter(
     tags=["Sessions"],
 )
 
-# Global variable for session management
-# In a production environment, this would be replaced with a database or Redis
-agent_sessions: Dict[str, Dict[str, Any]] = {}
 # This is called whenever the client is first engaging or wants to resume a session
 # and needs the current state of the conversaion, hud, and any other information
 @router.post("/engage", response_model=SessionResponse)
@@ -42,14 +40,15 @@ async def engage_agent(agent_data: EngageAgentRequest):
     logger.info(f"Engage request received for session {session_key}")
     
     # Check if this agent is already engaged by this user
-    if session_key in agent_sessions:
+    session_data = get_session(session_key)
+    if session_data:
         logger.info(f"Agent {agent_id} already engaged by user {user_id}, resuming session")
         
         # Check if the session state exists
-        if "session_state" in agent_sessions[session_key]:
+        if "session_state" in session_data:
             # Send a refresh command to the agent
             try:
-                session_state = agent_sessions[session_key]["session_state"]
+                session_state = session_data["session_state"]
                 session_state.agent.get_conversation_history()                
                 logger.info(f"Refresh completed for session {session_key}")
             except Exception as e:
@@ -91,22 +90,26 @@ async def engage_agent(agent_data: EngageAgentRequest):
         session_state.init_session()
         
         # Set up session tracking
-        agent_sessions[session_key] = {
+        new_session_data = {
             "status": "active",
             "session_state": session_state,
             "user_messages": [],
             "agent_dialog_messages": []
         }
         
+        # Add the session to our session manager
+        add_session(session_key, new_session_data)
+        
         # Start or resume the conversation
         await session_state.agent.interaction_get_starting_conversation() 
     
     except Exception as e:
         logger.error(f"Error creating session {session_key}: {str(e)}")
+        breakpoint()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create session: {str(e)}"
-        )
+        )        
     
     return {"session_id": session_key}
 
@@ -115,7 +118,7 @@ async def get_agent_messages(session_key: str):
     """
     Get active messages for a specific session.
     """
-    session_data = agent_sessions.get(session_key)
+    session_data = get_session(session_key)
     
     if not session_data:
         raise HTTPException(status_code=404, detail="No active session found")
@@ -142,7 +145,7 @@ async def send_message(session_key: str, message_data: MessageRequest):
     """
     Send a message to a specific session and process it asynchronously.
     """
-    session_data = agent_sessions.get(session_key)
+    session_data = get_session(session_key)
     
     if not session_data:
         raise HTTPException(status_code=404, detail="No active session found")
@@ -168,7 +171,7 @@ async def end_agent_session(session_key: str):
     """
     End a session and clean up resources.
     """
-    session_data = agent_sessions.pop(session_key, None)
+    session_data = remove_session(session_key)
     
     if not session_data:
         raise HTTPException(status_code=404, detail="No active session found")

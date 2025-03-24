@@ -109,22 +109,22 @@ class SessionState:
             return json.load(file, object_hook=lambda d: SimpleNamespace(**d))
 
     def send_user_message(self, message):
-        logging.info(f"### AGENT MESSAGE ### {message}")
+        #logging.info(f"### AGENT MESSAGE ### {message}")
         # Backup direct print to ensure visibility
-        print(f"### AGENT MESSAGE ### {message}")
+        #print(f"### AGENT MESSAGE ### {message}")
         # Also write to stderr to bypass any stdout redirect
-        sys.stderr.write(f"### AGENT MESSAGE STDERR ### {message[:50]}...\n")
-        sys.stderr.flush()
+        #sys.stderr.write(f"### AGENT MESSAGE STDERR ### {message[:50]}...\n")
+        #sys.stderr.flush()
         agent_msg = {'role': 'Agent', 'response': message}
         self.agent_msgs.append(agent_msg)
 
     def send_as_user_message(self, message):
-        logging.info(f"### USER MESSAGE ### {message}")
+        #logging.info(f"### USER MESSAGE ### {message}")
         # Backup direct print to ensure visibility 
-        print(f"### USER MESSAGE ### {message}")
+        #print(f"### USER MESSAGE ### {message}")
         # Also write to stderr to bypass any stdout redirect
-        sys.stderr.write(f"### USER MESSAGE STDERR ### {message[:50]}...\n")
-        sys.stderr.flush()
+        #sys.stderr.write(f"### USER MESSAGE STDERR ### {message[:50]}...\n")
+        #sys.stderr.flush()
         agent_msg = {'role': 'User', 'response': message}
         self.agent_msgs.append(agent_msg)
 
@@ -137,8 +137,14 @@ class SessionState:
         agent_msg = {'role': 'debug-agent', 'response': f"{agent_role}: {message}"}
         self.agent_dialog_msgs.append(agent_msg)
 
-    def send_debug_message(self, message):
-        agent_msg = {'role': 'debug-agent', 'response': f"{message}"}
+    def send_debug_message(self, message_type, message):        
+        #allowed_message_types = ['agent_prompt', 'agent_response', 'tools']
+        #allowed_message_types = ['agent_prompt', 'agent_response', 'tools']
+        allowed_message_types = ['agent_prompt', 'agent_response', 'tools']
+        # If the message type is not in the list of allowed message types, return
+        if message_type not in allowed_message_types:
+            return
+        agent_msg = {'role': 'debug-agent', 'response': f"{message}", 'type': message_type}
         self.agent_dialog_msgs.append(agent_msg)
 
     def send_hud_message(self, message):

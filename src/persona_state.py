@@ -8,7 +8,7 @@ class PersonaStateManager:
         self.session = session
         self.current_state = self.db.states.get_persona_current_state(session.user_id, session.agent_id)
         if self.current_state == None:
-            self.current_state = persona_config['framework_settings']['starting_state']
+            self.current_state = persona_config['framework_settings']['state_settings']['starting_state']
             self.db.states.set_persona_current_state(self.session.user_id, self.session.agent_id, self.current_state)
         for state_name, state_config in persona_config['states'].items():
             self.state_obj_dict[state_name] = PersonaState(self, state_name, state_config, self.db)
