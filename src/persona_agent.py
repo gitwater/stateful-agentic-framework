@@ -96,7 +96,7 @@ class PersonaAgent:
     # Get the framework messages for the persona
     # Persona
     #
-    def get_framework_messages(self, messages, state_data_json_response=False, user_input=None):
+    def get_framework_messages(self, messages, state_data_json_response=False, user_input=None, override_state_prompt_type=False):
         persona_config = self.persona_config.config['persona']
         persona_state_obj = self.state_manager.get_state_obj()
         # Persona
@@ -114,6 +114,11 @@ Your purpose is {persona_config['purpose']}.
         state_list = []
         indent = "  "
         framework_states = ""
+        if override_state_prompt_type == False:
+            framework_prompt_type = framework_state_settings['framework_prompt_type']            
+        else:
+            framework_prompt_type = "FULL_STATES"
+
         for (state_name, state_config) in states_config.items():
             # framework_prompt_type: FULL_CURRENT_STATE # FULL_STATES | FULL_CURRENT_STATE | CURRENT_STATE_ONLY
 
@@ -267,10 +272,10 @@ OUTPUT FORMAT TEXT: END
         return messages
 
 
-    def interaction_get_response(self, interaction_type, system_message, json_format_dict=None, user_input=None):
+    def interaction_get_response(self, interaction_type, system_message, json_format_dict=None, user_input=None, override_state_prompt_type=False):
         messages = []
         prompt_messages = []
-        framework_messages = self.get_framework_messages(messages, user_input=user_input)
+        framework_messages = self.get_framework_messages(messages, user_input=user_input, override_state_prompt_type=override_state_prompt_type)
         messages.extend(framework_messages)
 
         prompt_messages.append({
@@ -300,7 +305,7 @@ Ensure that the JSON response is loadable by json.loads(). Ensure that newlines 
         response = self.get_response(messages, json_response=True)
 
         allowed_interaction_types = ['starting_conversation', 'hud_content']
-        allowed_interaction_types = []
+        allowed_interaction_types = ['hud_content']
         if interaction_type in allowed_interaction_types:
             self.session.send_debug_message("agent_prompt","---------------------------------------------------------------------")
             self.session.send_debug_message("agent_prompt", "Agent Prompt\n")
@@ -380,7 +385,7 @@ Instructions:
             'hud_content': "<Generate HUD content <variables> using state data. Format with Markdown using the Markdown and Response Instructions.>",
         }
 
-        response = self.interaction_get_response("hud_content", hud_prompt_message, json_format_dict, user_input=None)
+        response = self.interaction_get_response("hud_content", hud_prompt_message, json_format_dict, user_input=None, override_state_prompt_type=True)
 
         self.session.send_hud_message(response['hud_content'])
 
